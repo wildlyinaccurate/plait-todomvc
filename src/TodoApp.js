@@ -1,14 +1,13 @@
 import h from 'virtual-dom/h'
 import { App } from 'plait'
 
-const [fwd, initComponent] = [App.forwardDispatch, App.initializeComponent]
-
 import * as Header from 'Header'
 import * as TodoItem from 'TodoItem'
 import * as Footer from 'Footer'
 
 
 const ENTER_KEY = 13
+const [fwd, initComponent] = [App.forwardDispatch, App.initializeComponent]
 
 
 export function init () {
