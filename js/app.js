@@ -3608,12 +3608,12 @@ function view(state, dispatch) {
   var todos = remaining(state.get('todos')).length;
   var items = todos === 1 ? 'item' : 'items';
 
-  return (0, _h2.default)('footer', { className: "footer" }, [(0, _h2.default)('span', { className: "todo-count" }, [(0, _h2.default)('strong', null, [todos]), " ", items, " left"]), (0, _h2.default)('ul', { className: "filters" }, [(0, _h2.default)('li', null, [(0, _h2.default)('a', { className: "selected", href: "#/" }, ["All"])]), (0, _h2.default)('li', null, [(0, _h2.default)('a', { href: "#/active" }, ["Active"])]), (0, _h2.default)('li', null, [(0, _h2.default)('a', { href: "#/completed" }, ["Completed"])])]), clearCompleted(todos)]);
+  return (0, _h2.default)('footer', { className: "footer" }, [(0, _h2.default)('span', { className: "todo-count" }, [(0, _h2.default)('strong', null, [todos]), " ", items, " left"]), (0, _h2.default)('ul', { className: "filters" }, [(0, _h2.default)('li', null, [(0, _h2.default)('a', { className: "selected", href: "#/" }, ["All"])]), (0, _h2.default)('li', null, [(0, _h2.default)('a', { href: "#/active" }, ["Active"])]), (0, _h2.default)('li', null, [(0, _h2.default)('a', { href: "#/completed" }, ["Completed"])])]), clearCompleted(todos, state, dispatch)]);
 }
 
-function clearCompleted(todos) {
+function clearCompleted(todos, state, dispatch) {
   if (todos) {
-    return (0, _h2.default)('button', { className: "clear-completed" }, ["Clear completed"]);
+    return (0, _h2.default)('button', { className: "clear-completed", 'ev-click': dispatch({ type: 'CLEAR_COMPLETED' }) }, ["Clear completed"]);
   }
 }
 
@@ -3732,6 +3732,14 @@ function update(state, action) {
     case 'TODO_ITEM_ACTION':
       return updateTodoItems(state, action);
 
+    case 'CLEAR_COMPLETED':
+      console.log('uggghh');
+      return state.update('todos', function (todos) {
+        return todos.filter(function (todo) {
+          return !todo.get('completed');
+        });
+      });
+
     case 'TOGGLE_ALL':
       var todoAction = {
         type: 'SET_COMPLETED',
@@ -3797,7 +3805,7 @@ function updateTodoItems(state, action) {
 }
 
 function view(state, dispatch) {
-  return (0, _h2.default)('section', { className: "todoapp" }, [headerView(state, dispatch), todosView(state, dispatch), footerView(state, dispatch)]);
+  return (0, _h2.default)('div', null, [(0, _h2.default)('section', { className: "todoapp" }, [headerView(state, dispatch), todosView(state, dispatch), footerView(state, dispatch)]), (0, _h2.default)('footer', { className: "info" }, [(0, _h2.default)('p', null, ["Double-click to edit a todo"]), (0, _h2.default)('p', null, ["Created by ", (0, _h2.default)('a', { href: "https://wildlyinaccurate.com/" }, ["Joseph Wynn"])]), (0, _h2.default)('p', null, ["Part of ", (0, _h2.default)('a', { href: "http://todomvc.com" }, ["TodoMVC"])])])]);
 }
 
 function headerView(state, dispatch) {
@@ -3856,7 +3864,6 @@ function init(title) {
 }
 
 function update(state, action) {
-  console.log("yay", action);
   switch (action.type) {
     case 'SET_COMPLETED':
       return state.set('completed', action.completed);

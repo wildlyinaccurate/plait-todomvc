@@ -37,14 +37,18 @@ export function view (state, dispatch) {
         </li>
       </ul>
 
-      {clearCompleted(todos)}
+      {clearCompleted(todos, state, dispatch)}
     </footer>
   )
 }
 
-function clearCompleted (todos) {
+function clearCompleted (todos, state, dispatch) {
   if (todos) {
-    return <button className="clear-completed">Clear completed</button>
+    return (
+      <button className="clear-completed" ev-click={dispatch({ type: 'CLEAR_COMPLETED' })}>
+        Clear completed
+      </button>
+    )
   }
 }
 

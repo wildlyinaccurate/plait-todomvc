@@ -28,6 +28,11 @@ export function update (state, action) {
     case 'TODO_ITEM_ACTION':
       return updateTodoItems(state, action)
 
+    case 'CLEAR_COMPLETED':
+      return state.update('todos', function(todos) {
+        return todos.filter(todo => !todo.get('completed'))
+      })
+
     case 'TOGGLE_ALL':
       const todoAction = {
         type: 'SET_COMPLETED',
@@ -73,11 +78,19 @@ function updateTodoItems (state, action) {
 
 export function view (state, dispatch) {
   return (
-    <section className="todoapp">
-      {headerView(state, dispatch)}
-      {todosView(state, dispatch)}
-      {footerView(state, dispatch)}
-    </section>
+    <div>
+      <section className="todoapp">
+        {headerView(state, dispatch)}
+        {todosView(state, dispatch)}
+        {footerView(state, dispatch)}
+      </section>
+
+      <footer className="info">
+          <p>Double-click to edit a todo</p>
+          <p>Created by <a href="https://wildlyinaccurate.com/">Joseph Wynn</a></p>
+          <p>Part of <a href="http://todomvc.com">TodoMVC</a></p>
+      </footer>
+    </div>
   )
 }
 
