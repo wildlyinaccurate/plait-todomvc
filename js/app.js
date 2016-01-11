@@ -3592,38 +3592,48 @@ var _h = require('virtual-dom/h');
 
 var _h2 = _interopRequireDefault(_h);
 
+var _filters = require('filters');
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function init() {
   return {
-    todos: []
+    todos: [],
+    filter: _filters.FILTER_ALL
   };
 }
 
 function update(state, action) {
-  switch (action.type) {}
+  switch (action.type) {
+    case 'CHANGE_FILTER':
+      return state.set('filter', action.filter);
+  }
 }
 
 function view(state, dispatch) {
-  var todos = remaining(state.get('todos')).length;
-  var items = todos === 1 ? 'item' : 'items';
+  var todos = state.get('todos');
+  var remaining = todos.filter(function (todo) {
+    return !todo.get('completed');
+  });
+  var items = remaining.length === 1 ? 'item' : 'items';
 
-  return (0, _h2.default)('footer', { className: "footer" }, [(0, _h2.default)('span', { className: "todo-count" }, [(0, _h2.default)('strong', null, [todos]), " ", items, " left"]), (0, _h2.default)('ul', { className: "filters" }, [(0, _h2.default)('li', null, [(0, _h2.default)('a', { className: "selected", href: "#/" }, ["All"])]), (0, _h2.default)('li', null, [(0, _h2.default)('a', { href: "#/active" }, ["Active"])]), (0, _h2.default)('li', null, [(0, _h2.default)('a', { href: "#/completed" }, ["Completed"])])]), clearCompleted(todos, state, dispatch)]);
+  return (0, _h2.default)('footer', { className: "footer" }, [(0, _h2.default)('span', { className: "todo-count" }, [(0, _h2.default)('strong', null, [remaining.length]), " ", items, " left"]), (0, _h2.default)('ul', { className: "filters" }, [(0, _h2.default)('li', null, [filterLink(state, dispatch, _filters.FILTER_ALL)]), (0, _h2.default)('li', null, [filterLink(state, dispatch, _filters.FILTER_ACTIVE)]), (0, _h2.default)('li', null, [filterLink(state, dispatch, _filters.FILTER_COMPLETED)])]), clearCompleted(state, dispatch, todos)]);
 }
 
-function clearCompleted(todos, state, dispatch) {
-  if (todos) {
+function filterLink(state, dispatch, filter) {
+  var href = '#/' + filter.toLowerCase();
+  var className = state.get('filter') === filter ? 'selected' : '';
+
+  return (0, _h2.default)('a', { className: className, href: href, 'ev-click': dispatch({ type: 'CHANGE_FILTER', filter: filter }) }, [filter]);
+}
+
+function clearCompleted(state, dispatch, todos) {
+  if (todos.length) {
     return (0, _h2.default)('button', { className: "clear-completed", 'ev-click': dispatch({ type: 'CLEAR_COMPLETED' }) }, ["Clear completed"]);
   }
 }
 
-function remaining(todos) {
-  return todos.filter(function (x) {
-    return !x.get('completed');
-  });
-}
-
-},{"virtual-dom/h":45}],73:[function(require,module,exports){
+},{"filters":77,"virtual-dom/h":45}],73:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -3707,21 +3717,22 @@ var _Footer = require('Footer');
 
 var Footer = _interopRequireWildcard(_Footer);
 
+var _filters = require('filters');
+
+var _merge = require('merge');
+
+var _merge2 = _interopRequireDefault(_merge);
+
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-var fwd = _plait.App.forwardDispatch;
-var initComponent = _plait.App.initializeComponent;
-
 var ENTER_KEY = 13;
 
+var fwd = _plait.App.forwardDispatch;
+var initComponent = _plait.App.initializeComponent;
 function init() {
-  var initState = {
-    todos: []
-  };
-
-  return merge(initState, Header.init());
+  return (0, _merge2.default)({ todos: [] }, Header.init(), Footer.init());
 }
 
 function update(state, action) {
@@ -3729,16 +3740,11 @@ function update(state, action) {
     case 'HEADER_ACTION':
       return updateHeader(state, action);
 
+    case 'FOOTER_ACTION':
+      return updateFooter(state, action);
+
     case 'TODO_ITEM_ACTION':
       return updateTodoItems(state, action);
-
-    case 'CLEAR_COMPLETED':
-      console.log('uggghh');
-      return state.update('todos', function (todos) {
-        return todos.filter(function (todo) {
-          return !todo.get('completed');
-        });
-      });
 
     case 'TOGGLE_ALL':
       var todoAction = {
@@ -3770,8 +3776,20 @@ function updateHeader(state, action) {
 
     if ((typeof _ret === 'undefined' ? 'undefined' : _typeof(_ret)) === "object") return _ret.v;
   } else {
-    return Header.update(state, merge(action.$fwdAction, { $event: action.$event }));
+    return Header.update(state, (0, _merge2.default)(action.$fwdAction, { $event: action.$event }));
   }
+}
+
+function updateFooter(state, action) {
+  if (action.$fwdAction.type === 'CLEAR_COMPLETED') {
+    return state.update('todos', function (todos) {
+      return todos.filter(function (todo) {
+        return !todo.get('completed');
+      });
+    });
+  }
+
+  return Footer.update(state, action.$fwdAction);
 }
 
 var updateTodoItem = function updateTodoItem(action) {
@@ -3809,14 +3827,12 @@ function view(state, dispatch) {
 }
 
 function headerView(state, dispatch) {
-  var modifiedDispatch = fwd({ type: 'HEADER_ACTION' }, dispatch, state);
-
-  return Header.view(state, modifiedDispatch);
+  return Header.view(state, fwd({ type: 'HEADER_ACTION' }, dispatch, state));
 }
 
 function footerView(state, dispatch) {
   if (state.get('todos').length) {
-    return Footer.view(state, dispatch);
+    return Footer.view(state, fwd({ type: 'FOOTER_ACTION' }, dispatch, state));
   }
 }
 
@@ -3827,18 +3843,35 @@ function todosView(state, dispatch) {
 }
 
 function todoItemsView(state, dispatch) {
-  return state.get('todos').map(function (todoState, todoIdx) {
+  var filteredTodos = filterTodos(state.get('todos'), state.get('filter'));
+
+  return filteredTodos.map(function (todoState, todoIdx) {
     var modifiedDispatch = fwd({ type: 'TODO_ITEM_ACTION', todoIdx: todoIdx }, dispatch, state);
 
     return TodoItem.view(todoState, modifiedDispatch);
   });
 }
 
-function merge(obj1, obj2) {
-  return Object.assign({}, obj1, obj2);
+function filterTodos(todos, filter) {
+  return todos.filter(function (todo) {
+    return satisfiesFilter(filter, todo);
+  });
 }
 
-},{"Footer":72,"Header":73,"TodoItem":76,"plait":19,"virtual-dom/h":45}],76:[function(require,module,exports){
+function satisfiesFilter(filter, todo) {
+  switch (filter) {
+    case _filters.FILTER_ALL:
+      return true;
+
+    case _filters.FILTER_COMPLETED:
+      return todo.get('completed');
+
+    case _filters.FILTER_ACTIVE:
+      return !todo.get('completed');
+  }
+}
+
+},{"Footer":72,"Header":73,"TodoItem":76,"filters":77,"merge":78,"plait":19,"virtual-dom/h":45}],76:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -3888,4 +3921,31 @@ function setCompleted(completed) {
   return { type: 'SET_COMPLETED', completed: completed };
 }
 
-},{"virtual-dom/h":45}]},{},[74]);
+},{"virtual-dom/h":45}],77:[function(require,module,exports){
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+var FILTER_ALL = exports.FILTER_ALL = 'All';
+
+var FILTER_ACTIVE = exports.FILTER_ACTIVE = 'Active';
+
+var FILTER_COMPLETED = exports.FILTER_COMPLETED = 'Completed';
+
+},{}],78:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = merge;
+function merge() {
+  for (var _len = arguments.length, objs = Array(_len), _key = 0; _key < _len; _key++) {
+    objs[_key] = arguments[_key];
+  }
+
+  return Object.assign.apply(this, [{}].concat(objs));
+}
+
+},{}]},{},[74]);
