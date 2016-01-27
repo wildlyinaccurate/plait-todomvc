@@ -1,8 +1,8 @@
 {
-  "name": "plait-skeleton-app",
+  "name": "plait-todomvc",
   "version": "1.0.0",
-  "description": "A skeleton app to kick-start your Plait application.",
-  "main": "index.js",
+  "description": " An implementation of TodoMVC in the Plait framework (https://wildlyinaccurate.com/plait/).",
+  "main": "src/Main.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -34,7 +34,7 @@
     "gulp": "^3.9.0",
     "gulp-babel": "^6.1.1",
     "gulp-jasmine": "^2.2.1",
-    "jsx-transform": "^2.2.1",
+    "jsx-transform": "^2.3.0",
     "vinyl-source-stream": "^1.1.0"
   }
 }
