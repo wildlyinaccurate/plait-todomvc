@@ -92,9 +92,15 @@ export function view (state, dispatch) {
       </section>
 
       <footer className="info">
-          <p>Double-click to edit a todo</p>
-          <p>Created by <a href="https://wildlyinaccurate.com/">Joseph Wynn</a></p>
-          <p>Part of <a href="http://todomvc.com">TodoMVC</a></p>
+        <p>Double-click to edit a todo</p>
+
+        <p>
+          Created by <a href="https://wildlyinaccurate.com/">Joseph Wynn</a>
+        </p>
+
+        <p>
+          Part of <a href="http://todomvc.com">TodoMVC</a>
+        </p>
       </footer>
     </div>
   )
@@ -114,8 +120,11 @@ function todosView (state, dispatch) {
   if (state.get('todos').length) {
     return (
       <section className="main">
-        <input className="toggle-all" type="checkbox" ev-change={dispatch({ type: 'TOGGLE_ALL' })} />
-        <label htmlFor="toggle-all">Mark all as complete</label>
+        <input className="toggle-all" ev-change={dispatch({ type: 'TOGGLE_ALL' })} type="checkbox" />
+
+        <label htmlFor="toggle-all">
+          Mark all as complete
+        </label>
 
         <ul className="todo-list">
           {todoItemsView(state, dispatch)}

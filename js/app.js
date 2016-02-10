@@ -3606,7 +3606,7 @@ function filterLink(state, dispatch, filter) {
   var href = '#/' + filter.toLowerCase();
   var className = state.get('filter') === filter ? 'selected' : '';
 
-  return (0, _h2.default)('a', { className: className, href: href, 'ev-click': dispatch({ type: 'CHANGE_FILTER', filter: filter }) }, [filter]);
+  return (0, _h2.default)('a', { className: className, 'ev-click': dispatch({ type: 'CHANGE_FILTER', filter: filter }), href: href }, [filter]);
 }
 
 function clearCompleted(state, dispatch, todos) {
@@ -3647,13 +3647,13 @@ function update(state, action) {
 function view(state, dispatch) {
   var dispatchChangeAction = dispatch({ type: 'VALUE_CHANGED' });
 
-  return (0, _h2.default)('header', { className: "header" }, [(0, _h2.default)('h1', null, ["todos"]), (0, _h2.default)('input', {
+  return (0, _h2.default)('header', { className: "header" }, [(0, _h2.default)('h1', null, ['todos']), (0, _h2.default)('input', {
+    autofocus: true,
     className: "new-todo",
-    placeholder: "What needs to be done?",
-    value: state.get('inputValue'),
-    'ev-keyup': dispatchChangeAction,
     'ev-change': dispatchChangeAction,
-    autofocus: true })]);
+    'ev-keyup': dispatchChangeAction,
+    placeholder: "What needs to be done?",
+    value: state.get('inputValue') })]);
 }
 
 },{"virtual-dom/h":45}],75:[function(require,module,exports){
@@ -3808,7 +3808,7 @@ function footerView(state, dispatch) {
 
 function todosView(state, dispatch) {
   if (state.get('todos').length) {
-    return (0, _h2.default)('section', { className: "main" }, [(0, _h2.default)('input', { className: "toggle-all", type: "checkbox", 'ev-change': dispatch({ type: 'TOGGLE_ALL' }) }), (0, _h2.default)('label', { htmlFor: "toggle-all" }, ["Mark all as complete"]), (0, _h2.default)('ul', { className: "todo-list" }, [todoItemsView(state, dispatch)])]);
+    return (0, _h2.default)('section', { className: "main" }, [(0, _h2.default)('input', { className: "toggle-all", 'ev-change': dispatch({ type: 'TOGGLE_ALL' }), type: "checkbox" }), (0, _h2.default)('label', { htmlFor: "toggle-all" }, ["Mark all as complete"]), (0, _h2.default)('ul', { className: "todo-list" }, [todoItemsView(state, dispatch)])]);
   }
 }
 
@@ -3881,9 +3881,9 @@ function view(state, dispatch) {
 
 function checkboxView(state, dispatch) {
   if (state.get('completed')) {
-    return (0, _h2.default)('input', { className: "toggle", type: "checkbox", 'ev-change': dispatch(setCompleted(false)), checked: true });
+    return (0, _h2.default)('input', { checked: true, className: "toggle", 'ev-change': dispatch(setCompleted(false)), type: "checkbox" });
   } else {
-    return (0, _h2.default)('input', { className: "toggle", type: "checkbox", 'ev-change': dispatch(setCompleted(true)) });
+    return (0, _h2.default)('input', { className: "toggle", 'ev-change': dispatch(setCompleted(true)), type: "checkbox" });
   }
 }
 

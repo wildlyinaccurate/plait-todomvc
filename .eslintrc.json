@@ -1,0 +1,71 @@
+{
+  "extends": "eslint:recommended",
+  "ecmaFeatures": {
+    "modules": true,
+    "jsx": true
+  },
+  "plugins": [
+    "react"
+  ],
+  "rules": {
+    "indent": [
+      2,
+      2,
+      {
+        "SwitchCase": 1
+      }
+    ],
+    "quotes": [
+      2,
+      "single"
+    ],
+    "linebreak-style": [
+      2,
+      "unix"
+    ],
+    "semi": [
+      2,
+      "never"
+    ],
+    "no-unused-vars": [
+      2,
+      {
+      "varsIgnorePattern": "^h$"
+      }
+    ],
+    "arrow-parens": [
+      2,
+      "as-needed"
+    ],
+    "jsx-quotes": [
+      2,
+      "prefer-double"
+    ],
+
+    "react/jsx-boolean-value": 1,
+    "react/jsx-closing-bracket-location": 1,
+    "react/jsx-curly-spacing": 1,
+    "react/jsx-equals-spacing": 1,
+    "react/jsx-indent-props": [1, 2],
+    "react/jsx-indent": [1, 2],
+    "react/jsx-no-bind": 1,
+    "react/jsx-no-duplicate-props": 1,
+    "react/jsx-no-undef": 1,
+    "react/jsx-sort-prop-types": 1,
+    "react/jsx-sort-props": 1,
+    "react/no-string-refs": 1,
+    "react/self-closing-comp": 1,
+    "react/sort-comp": 1,
+    "react/wrap-multilines": 1
+  },
+  "env": {
+    "es6": true,
+    "node": true,
+    "browser": true
+  },
+  "settings": {
+    "react": {
+      "pragma": "h"
+    }
+  }
+}

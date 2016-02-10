@@ -52,7 +52,7 @@ function filterLink (state, dispatch, filter) {
   const className = state.get('filter') === filter ? 'selected' : ''
 
   return (
-    <a className={className} href={href} ev-click={dispatch({ type: 'CHANGE_FILTER', filter })}>
+    <a className={className} ev-click={dispatch({ type: 'CHANGE_FILTER', filter })} href={href}>
       {filter}
     </a>
   )
