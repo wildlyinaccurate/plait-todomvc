@@ -3,7 +3,6 @@ import gutil from 'gulp-util'
 import source from 'vinyl-source-stream'
 import browserify from 'browserify'
 import jsxTransform from 'jsx-transform'
-import jasmine from 'gulp-jasmine'
 
 gulp.task('default', ['build'])
 
