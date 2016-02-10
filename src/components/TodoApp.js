@@ -1,12 +1,12 @@
 import h from 'virtual-dom/h'
 import { App } from 'plait'
 
-import * as Header from 'Header'
-import * as TodoItem from 'TodoItem'
-import * as Footer from 'Footer'
+import * as Header from 'components/Header'
+import * as TodoItem from 'components/TodoItem'
+import * as Footer from 'components/Footer'
 
-import { FILTER_ALL, FILTER_ACTIVE, FILTER_COMPLETED } from 'filters'
-import merge from 'merge'
+import { FILTER_ALL, FILTER_ACTIVE, FILTER_COMPLETED } from 'utils/filters'
+import merge from 'utils/merge'
 
 
 const ENTER_KEY = 13

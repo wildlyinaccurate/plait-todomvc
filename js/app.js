@@ -3597,6 +3597,19 @@ function isArray(obj) {
 },{}],72:[function(require,module,exports){
 'use strict';
 
+var _plait = require('plait');
+
+var _TodoApp = require('components/TodoApp');
+
+var TodoApp = _interopRequireWildcard(_TodoApp);
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
+
+document.getElementById('app').appendChild(_plait.App.start(TodoApp));
+
+},{"components/TodoApp":75,"plait":19}],73:[function(require,module,exports){
+'use strict';
+
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
@@ -3608,7 +3621,7 @@ var _h = require('virtual-dom/h');
 
 var _h2 = _interopRequireDefault(_h);
 
-var _filters = require('filters');
+var _filters = require('utils/filters');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -3649,7 +3662,7 @@ function clearCompleted(state, dispatch, todos) {
   }
 }
 
-},{"filters":77,"virtual-dom/h":45}],73:[function(require,module,exports){
+},{"utils/filters":77,"virtual-dom/h":45}],74:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -3690,20 +3703,7 @@ function view(state, dispatch) {
     autofocus: true })]);
 }
 
-},{"virtual-dom/h":45}],74:[function(require,module,exports){
-'use strict';
-
-var _plait = require('plait');
-
-var _TodoApp = require('TodoApp');
-
-var TodoApp = _interopRequireWildcard(_TodoApp);
-
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
-
-document.getElementById('app').appendChild(_plait.App.start(TodoApp));
-
-},{"TodoApp":75,"plait":19}],75:[function(require,module,exports){
+},{"virtual-dom/h":45}],75:[function(require,module,exports){
 'use strict';
 
 var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol ? "symbol" : typeof obj; };
@@ -3721,21 +3721,21 @@ var _h2 = _interopRequireDefault(_h);
 
 var _plait = require('plait');
 
-var _Header = require('Header');
+var _Header = require('components/Header');
 
 var Header = _interopRequireWildcard(_Header);
 
-var _TodoItem = require('TodoItem');
+var _TodoItem = require('components/TodoItem');
 
 var TodoItem = _interopRequireWildcard(_TodoItem);
 
-var _Footer = require('Footer');
+var _Footer = require('components/Footer');
 
 var Footer = _interopRequireWildcard(_Footer);
 
-var _filters = require('filters');
+var _filters = require('utils/filters');
 
-var _merge = require('merge');
+var _merge = require('utils/merge');
 
 var _merge2 = _interopRequireDefault(_merge);
 
@@ -3887,7 +3887,7 @@ function satisfiesFilter(filter, todo) {
   }
 }
 
-},{"Footer":72,"Header":73,"TodoItem":76,"filters":77,"merge":78,"plait":19,"virtual-dom/h":45}],76:[function(require,module,exports){
+},{"components/Footer":73,"components/Header":74,"components/TodoItem":76,"plait":19,"utils/filters":77,"utils/merge":78,"virtual-dom/h":45}],76:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -3964,4 +3964,4 @@ function merge() {
   return Object.assign.apply(this, [{}].concat(objs));
 }
 
-},{}]},{},[74]);
+},{}]},{},[72]);
