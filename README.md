@@ -2,9 +2,6 @@
 
 > A minimal JavaScript framework for building reactive web components
 
-## (In Progress)
-
-
 ## Resources
 
 - [Website](https://wildlyinaccurate.com/plait/)
