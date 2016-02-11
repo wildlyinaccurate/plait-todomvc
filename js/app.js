@@ -3552,7 +3552,7 @@ function isArray(obj) {
 
 var _plait = require('plait');
 
-var _TodoApp = require('components/TodoApp');
+var _TodoApp = require('./components/TodoApp');
 
 var TodoApp = _interopRequireWildcard(_TodoApp);
 
@@ -3560,7 +3560,7 @@ function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj;
 
 document.getElementById('app').appendChild(_plait.App.start(TodoApp));
 
-},{"components/TodoApp":75,"plait":18}],73:[function(require,module,exports){
+},{"./components/TodoApp":75,"plait":18}],73:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -3574,7 +3574,7 @@ var _h = require('virtual-dom/h');
 
 var _h2 = _interopRequireDefault(_h);
 
-var _filters = require('utils/filters');
+var _filters = require('../utils/filters');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -3615,7 +3615,7 @@ function clearCompleted(state, dispatch, todos) {
   }
 }
 
-},{"utils/filters":77,"virtual-dom/h":45}],74:[function(require,module,exports){
+},{"../utils/filters":77,"virtual-dom/h":45}],74:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -3675,21 +3675,21 @@ var _h2 = _interopRequireDefault(_h);
 
 var _plait = require('plait');
 
-var _Header = require('components/Header');
+var _Header = require('./Header');
 
 var Header = _interopRequireWildcard(_Header);
 
-var _TodoItem = require('components/TodoItem');
+var _TodoItem = require('./TodoItem');
 
 var TodoItem = _interopRequireWildcard(_TodoItem);
 
-var _Footer = require('components/Footer');
+var _Footer = require('./Footer');
 
 var Footer = _interopRequireWildcard(_Footer);
 
-var _filters = require('utils/filters');
+var _filters = require('../utils/filters');
 
-var _merge = require('utils/merge');
+var _merge = require('../utils/merge');
 
 var _merge2 = _interopRequireDefault(_merge);
 
@@ -3841,7 +3841,7 @@ function satisfiesFilter(filter, todo) {
   }
 }
 
-},{"components/Footer":73,"components/Header":74,"components/TodoItem":76,"plait":18,"utils/filters":77,"utils/merge":78,"virtual-dom/h":45}],76:[function(require,module,exports){
+},{"../utils/filters":77,"../utils/merge":78,"./Footer":73,"./Header":74,"./TodoItem":76,"plait":18,"virtual-dom/h":45}],76:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {

@@ -1,6 +1,6 @@
 import h from 'virtual-dom/h'
 
-import { FILTER_ALL, FILTER_ACTIVE, FILTER_COMPLETED } from 'utils/filters'
+import { FILTER_ALL, FILTER_ACTIVE, FILTER_COMPLETED } from '../utils/filters'
 
 
 export function init () {
