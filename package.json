@@ -22,7 +22,7 @@
   },
   "homepage": "https://github.com/wildlyinaccurate/plait-skeleton-app#readme",
   "dependencies": {
-    "plait": "^0.11.2",
+    "plait": "^0.12.0",
     "todomvc-app-css": "^2.0.4",
     "todomvc-common": "^1.0.2"
   },
