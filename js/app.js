@@ -1,4 +1,4 @@
-(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+(function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 
 },{}],2:[function(require,module,exports){
 /*!
@@ -110,14 +110,103 @@ module.exports = (function split(undef) {
 
 },{}],3:[function(require,module,exports){
 // shim for using process in browser
-
 var process = module.exports = {};
+
+// cached from whatever global is present so that test runners that stub it
+// don't break things.  But we need to wrap it in a try catch in case it is
+// wrapped in strict mode code which doesn't define any globals.  It's inside a
+// function because try/catches deoptimize in certain engines.
+
+var cachedSetTimeout;
+var cachedClearTimeout;
+
+function defaultSetTimout() {
+    throw new Error('setTimeout has not been defined');
+}
+function defaultClearTimeout () {
+    throw new Error('clearTimeout has not been defined');
+}
+(function () {
+    try {
+        if (typeof setTimeout === 'function') {
+            cachedSetTimeout = setTimeout;
+        } else {
+            cachedSetTimeout = defaultSetTimout;
+        }
+    } catch (e) {
+        cachedSetTimeout = defaultSetTimout;
+    }
+    try {
+        if (typeof clearTimeout === 'function') {
+            cachedClearTimeout = clearTimeout;
+        } else {
+            cachedClearTimeout = defaultClearTimeout;
+        }
+    } catch (e) {
+        cachedClearTimeout = defaultClearTimeout;
+    }
+} ())
+function runTimeout(fun) {
+    if (cachedSetTimeout === setTimeout) {
+        //normal enviroments in sane situations
+        return setTimeout(fun, 0);
+    }
+    // if setTimeout wasn't available but was latter defined
+    if ((cachedSetTimeout === defaultSetTimout || !cachedSetTimeout) && setTimeout) {
+        cachedSetTimeout = setTimeout;
+        return setTimeout(fun, 0);
+    }
+    try {
+        // when when somebody has screwed with setTimeout but no I.E. maddness
+        return cachedSetTimeout(fun, 0);
+    } catch(e){
+        try {
+            // When we are in I.E. but the script has been evaled so I.E. doesn't trust the global object when called normally
+            return cachedSetTimeout.call(null, fun, 0);
+        } catch(e){
+            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error
+            return cachedSetTimeout.call(this, fun, 0);
+        }
+    }
+
+
+}
+function runClearTimeout(marker) {
+    if (cachedClearTimeout === clearTimeout) {
+        //normal enviroments in sane situations
+        return clearTimeout(marker);
+    }
+    // if clearTimeout wasn't available but was latter defined
+    if ((cachedClearTimeout === defaultClearTimeout || !cachedClearTimeout) && clearTimeout) {
+        cachedClearTimeout = clearTimeout;
+        return clearTimeout(marker);
+    }
+    try {
+        // when when somebody has screwed with setTimeout but no I.E. maddness
+        return cachedClearTimeout(marker);
+    } catch (e){
+        try {
+            // When we are in I.E. but the script has been evaled so I.E. doesn't  trust the global object when called normally
+            return cachedClearTimeout.call(null, marker);
+        } catch (e){
+            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error.
+            // Some versions of I.E. have different rules for clearTimeout vs setTimeout
+            return cachedClearTimeout.call(this, marker);
+        }
+    }
+
+
+
+}
 var queue = [];
 var draining = false;
 var currentQueue;
 var queueIndex = -1;
 
 function cleanUpNextTick() {
+    if (!draining || !currentQueue) {
+        return;
+    }
     draining = false;
     if (currentQueue.length) {
         queue = currentQueue.concat(queue);
@@ -133,7 +222,7 @@ function drainQueue() {
     if (draining) {
         return;
     }
-    var timeout = setTimeout(cleanUpNextTick);
+    var timeout = runTimeout(cleanUpNextTick);
     draining = true;
 
     var len = queue.length;
@@ -150,7 +239,7 @@ function drainQueue() {
     }
     currentQueue = null;
     draining = false;
-    clearTimeout(timeout);
+    runClearTimeout(timeout);
 }
 
 process.nextTick = function (fun) {
@@ -162,7 +251,7 @@ process.nextTick = function (fun) {
     }
     queue.push(new Item(fun, args));
     if (queue.length === 1 && !draining) {
-        setTimeout(drainQueue, 0);
+        runTimeout(drainQueue);
     }
 };
 
@@ -190,6 +279,10 @@ process.off = noop;
 process.removeListener = noop;
 process.removeAllListeners = noop;
 process.emit = noop;
+process.prependListener = noop;
+process.prependOnceListener = noop;
+
+process.listeners = function (name) { return [] }
 
 process.binding = function (name) {
     throw new Error('process.binding is not supported');
@@ -410,7 +503,7 @@ function Handle() {
     this.type = "dom-delegator-handle"
 }
 
-},{"./add-event.js":4,"./proxy-event.js":6,"./remove-event.js":7,"ev-store":8,"global/document":11,"weakmap-shim/create-store":69}],6:[function(require,module,exports){
+},{"./add-event.js":4,"./proxy-event.js":6,"./remove-event.js":7,"ev-store":8,"global/document":11,"weakmap-shim/create-store":67}],6:[function(require,module,exports){
 var inherits = require("inherits")
 
 var ALL_PROPS = [
@@ -586,17 +679,19 @@ var topLevel = typeof global !== 'undefined' ? global :
     typeof window !== 'undefined' ? window : {}
 var minDoc = require('min-document');
 
+var doccy;
+
 if (typeof document !== 'undefined') {
-    module.exports = document;
+    doccy = document;
 } else {
-    var doccy = topLevel['__GLOBAL_DOCUMENT_CACHE@4'];
+    doccy = topLevel['__GLOBAL_DOCUMENT_CACHE@4'];
 
     if (!doccy) {
         doccy = topLevel['__GLOBAL_DOCUMENT_CACHE@4'] = minDoc;
     }
-
-    module.exports = doccy;
 }
+
+module.exports = doccy;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{"min-document":1}],12:[function(require,module,exports){
@@ -642,6 +737,7 @@ exports.forwardDispatch = undefined;
 var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
 
 exports.start = start;
+exports.render = render;
 exports.initializeComponent = initializeComponent;
 
 var _curry = require('ramda/src/curry');
@@ -654,17 +750,9 @@ var _reduxThunk = require('redux-thunk');
 
 var _reduxThunk2 = _interopRequireDefault(_reduxThunk);
 
-var _diff = require('virtual-dom/diff');
+var _virtualDom = require('./dom/virtual-dom');
 
-var _diff2 = _interopRequireDefault(_diff);
-
-var _patch = require('virtual-dom/patch');
-
-var _patch2 = _interopRequireDefault(_patch);
-
-var _createElement = require('virtual-dom/create-element');
-
-var _createElement2 = _interopRequireDefault(_createElement);
+var _virtualDom2 = _interopRequireDefault(_virtualDom);
 
 var _State = require('./State');
 
@@ -680,28 +768,30 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 delegator.listen();
 
+var ROOT_IDENTIFIER = 'data-plaitroot';
 var createStoreWithMiddleware = (0, _redux.applyMiddleware)(_reduxThunk2.default)(_redux.createStore);
 
+// Start a Plait app from a root component
 function start(component) {
-  var init = component.init;
-  var update = component.update;
-  var view = component.view;
+  var raf = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : window.requestAnimationFrame;
+  var init = component.init,
+      update = component.update,
+      view = component.view;
 
-  var _handleInit = handleInit(init);
-
-  var _handleInit2 = _slicedToArray(_handleInit, 2);
-
-  var initialState = _handleInit2[0];
-  var initialAction = _handleInit2[1];
+  var _handleInit = handleInit(init),
+      _handleInit2 = _slicedToArray(_handleInit, 2),
+      initialState = _handleInit2[0],
+      initialAction = _handleInit2[1];
 
   // Initial call to update() will be @@redux/INIT so bogus dispatch() is okay
+
 
   var dispatch = function dispatch(x) {
     return x;
   };
 
   var store = createStoreWithMiddleware(function () {
-    var state = arguments.length <= 0 || arguments[0] === undefined ? initialState : arguments[0];
+    var state = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : initialState;
     var action = arguments[1];
 
     var newState = update(state, action, dispatch);
@@ -715,12 +805,32 @@ function start(component) {
     store.dispatch(initialAction);
   }
 
-  var tree = view(initialState, dispatch);
-  var rootNode = (0, _createElement2.default)(tree);
+  var renderComponent = function renderComponent(state) {
+    return view(state, dispatch);
+  };
+
+  var _vdom = (0, _virtualDom2.default)(initialState, renderComponent, raf),
+      rootNode = _vdom.rootNode,
+      updateTree = _vdom.update;
+
+  rootNode.setAttribute(ROOT_IDENTIFIER, '');
 
   store.subscribe(function () {
-    tree = patchTree(rootNode, tree, view(store.getState(), dispatch));
+    updateTree(store.getState());
   });
+
+  return rootNode;
+}
+
+// Render a Plait app node to a root DOM node
+function render(appNode, rootNode) {
+  var staticNode = rootNode.querySelector('[' + ROOT_IDENTIFIER + ']');
+
+  if (staticNode) {
+    rootNode.replaceChild(appNode, staticNode);
+  } else {
+    rootNode.appendChild(appNode);
+  }
 
   return rootNode;
 }
@@ -744,22 +854,13 @@ function makeDispatcher(store) {
   };
 }
 
-function patchTree(rootNode, oldTree, newTree) {
-  (0, _patch2.default)(rootNode, (0, _diff2.default)(oldTree, newTree));
-
-  return newTree;
-}
-
 function initializeComponent(_ref, dispatch) {
   var init = _ref.init;
 
-  var _handleInit3 = handleInit(init);
-
-  var _handleInit4 = _slicedToArray(_handleInit3, 2);
-
-  var initialState = _handleInit4[0];
-  var initialAction = _handleInit4[1];
-
+  var _handleInit3 = handleInit(init),
+      _handleInit4 = _slicedToArray(_handleInit3, 2),
+      initialState = _handleInit4[0],
+      initialAction = _handleInit4[1];
 
   if (dispatch && initialAction) {
     dispatch(initialState)(initialAction)();
@@ -799,20 +900,24 @@ var forwardDispatch = exports.forwardDispatch = (0, _curry2.default)(function (a
     return dispatch(Object.assign({}, action, { $fwdAction: forwardAction }));
   };
 });
-},{"./State":15,"./dom/delegator":16,"ramda/src/curry":23,"redux":38,"redux-thunk":20,"virtual-dom/create-element":43,"virtual-dom/diff":44,"virtual-dom/patch":46}],15:[function(require,module,exports){
+},{"./State":15,"./dom/delegator":16,"./dom/virtual-dom":18,"ramda/src/curry":23,"redux":38,"redux-thunk":37}],15:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
-var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol ? "symbol" : typeof obj; };
+var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
 var _assocPath = require('ramda/src/assocPath');
 
 var _assocPath2 = _interopRequireDefault(_assocPath);
+
+var _is = require('ramda/src/is');
+
+var _is2 = _interopRequireDefault(_is);
 
 var _path = require('ramda/src/path');
 
@@ -862,7 +967,7 @@ var State = function () {
     value: function get(prop) {
       var val = this.obj[prop];
 
-      if ((typeof val === 'undefined' ? 'undefined' : _typeof(val)) === 'object' && !val.hasOwnProperty('@@Plait/State')) {
+      if ((0, _is2.default)(Object, val) && !val.hasOwnProperty('@@Plait/State')) {
         return (0, _clone2.default)(val);
       }
 
@@ -891,7 +996,8 @@ var State = function () {
 }();
 
 exports.default = State;
-},{"./utils/clone":19,"ramda/src/assocPath":22,"ramda/src/path":32}],16:[function(require,module,exports){
+module.exports = exports['default'];
+},{"./utils/clone":20,"ramda/src/assocPath":22,"ramda/src/is":34,"ramda/src/path":36}],16:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -923,17 +1029,73 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports.default = ['blur', 'change', 'click', 'contextmenu', 'dblclick', 'error', 'focus', 'focusin', 'focusout', 'input', 'keydown', 'keypress', 'keyup', 'load', 'mousedown', 'mouseup', 'resize', 'select', 'submit', 'touchcancel', 'touchend', 'touchstart', 'unload'];
+module.exports = exports['default'];
 },{}],18:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.State = exports.App = undefined;
+exports.default = VirtualDom;
+
+var _createElement = require('virtual-dom/create-element');
+
+var _createElement2 = _interopRequireDefault(_createElement);
+
+var _diff = require('virtual-dom/diff');
+
+var _diff2 = _interopRequireDefault(_diff);
+
+var _patch = require('virtual-dom/patch');
+
+var _patch2 = _interopRequireDefault(_patch);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function VirtualDom(state, render, raf) {
+  var renderScheduled = false;
+  var latestState = null;
+  var tree = render(state);
+  var rootNode = (0, _createElement2.default)(tree);
+
+  var update = function update(newState) {
+    if (latestState === null && renderScheduled === false) {
+      renderScheduled = true;
+
+      raf(function () {
+        renderScheduled = false;
+
+        if (latestState === null) return;
+
+        var newTree = render(latestState);
+        var patches = (0, _diff2.default)(tree, newTree);
+
+        (0, _patch2.default)(rootNode, patches);
+
+        tree = newTree;
+        latestState = null;
+      });
+    }
+
+    latestState = newState;
+  };
+
+  return { rootNode: rootNode, update: update };
+}
+module.exports = exports['default'];
+},{"virtual-dom/create-element":41,"virtual-dom/diff":42,"virtual-dom/patch":44}],19:[function(require,module,exports){
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.State = exports.start = exports.render = exports.initializeComponent = exports.forwardDispatch = exports.h = undefined;
+
+var _h2 = require('virtual-dom/h');
+
+var _h3 = _interopRequireDefault(_h2);
 
 var _App = require('./App');
-
-var App = _interopRequireWildcard(_App);
 
 var _State = require('./State');
 
@@ -941,27 +1103,49 @@ var _State2 = _interopRequireDefault(_State);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
+function h(tag, attrs) {
+  for (var _len = arguments.length, children = Array(_len > 2 ? _len - 2 : 0), _key = 2; _key < _len; _key++) {
+    children[_key - 2] = arguments[_key];
+  }
 
-exports.App = App;
+  return (0, _h3.default)(tag, attrs, children);
+}
+
+exports.default = {
+  h: h,
+  forwardDispatch: _App.forwardDispatch,
+  initializeComponent: _App.initializeComponent,
+  render: _App.render,
+  start: _App.start,
+  State: _State2.default
+};
+exports.h = h;
+exports.forwardDispatch = _App.forwardDispatch;
+exports.initializeComponent = _App.initializeComponent;
+exports.render = _App.render;
+exports.start = _App.start;
 exports.State = _State2.default;
-},{"./App":14,"./State":15}],19:[function(require,module,exports){
+},{"./App":14,"./State":15,"virtual-dom/h":43}],20:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-
-var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol ? "symbol" : typeof obj; };
-
 exports.default = clone;
+
+var _is = require('ramda/src/is');
+
+var _is2 = _interopRequireDefault(_is);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
 function clone(obj) {
   var newObj = Array.isArray(obj) ? [] : {};
 
   for (var k in obj) {
     var val = obj[k];
 
-    if ((typeof val === 'undefined' ? 'undefined' : _typeof(val)) === 'object') {
+    if ((0, _is2.default)(Object, val)) {
       if (val.hasOwnProperty('@@Plait/State')) {
         newObj[k] = val.clone();
       } else {
@@ -974,28 +1158,9 @@ function clone(obj) {
 
   return newObj;
 }
-},{}],20:[function(require,module,exports){
-'use strict';
-
-exports.__esModule = true;
-exports['default'] = thunkMiddleware;
-function thunkMiddleware(_ref) {
-  var dispatch = _ref.dispatch;
-  var getState = _ref.getState;
-
-  return function (next) {
-    return function (action) {
-      if (typeof action === 'function') {
-        return action(dispatch, getState);
-      }
-
-      return next(action);
-    };
-  };
-}
-},{}],21:[function(require,module,exports){
-var _curry3 = require('./internal/_curry3');
-
+module.exports = exports['default'];
+},{"ramda/src/is":34}],21:[function(require,module,exports){
+var _curry3 = /*#__PURE__*/require('./internal/_curry3');
 
 /**
  * Makes a shallow clone of an object, setting or overriding the specified
@@ -1008,16 +1173,18 @@ var _curry3 = require('./internal/_curry3');
  * @since v0.8.0
  * @category Object
  * @sig String -> a -> {k: v} -> {k: v}
- * @param {String} prop the property name to set
- * @param {*} val the new value
- * @param {Object} obj the object to clone
- * @return {Object} a new object similar to the original except for the specified property.
+ * @param {String} prop The property name to set
+ * @param {*} val The new value
+ * @param {Object} obj The object to clone
+ * @return {Object} A new object equivalent to the original except for the changed property.
  * @see R.dissoc
  * @example
  *
  *      R.assoc('c', 3, {a: 1, b: 2}); //=> {a: 1, b: 2, c: 3}
  */
-module.exports = _curry3(function assoc(prop, val, obj) {
+
+
+var assoc = /*#__PURE__*/_curry3(function assoc(prop, val, obj) {
   var result = {};
   for (var p in obj) {
     result[p] = obj[p];
@@ -1025,12 +1192,19 @@ module.exports = _curry3(function assoc(prop, val, obj) {
   result[prop] = val;
   return result;
 });
-
+module.exports = assoc;
 },{"./internal/_curry3":28}],22:[function(require,module,exports){
-var _curry3 = require('./internal/_curry3');
-var _slice = require('./internal/_slice');
-var assoc = require('./assoc');
+var _curry3 = /*#__PURE__*/require('./internal/_curry3');
 
+var _has = /*#__PURE__*/require('./internal/_has');
+
+var _isArray = /*#__PURE__*/require('./internal/_isArray');
+
+var _isInteger = /*#__PURE__*/require('./internal/_isInteger');
+
+var assoc = /*#__PURE__*/require('./assoc');
+
+var isNil = /*#__PURE__*/require('./isNil');
 
 /**
  * Makes a shallow clone of an object, setting or overriding the nodes required
@@ -1042,31 +1216,44 @@ var assoc = require('./assoc');
  * @memberOf R
  * @since v0.8.0
  * @category Object
- * @sig [String] -> a -> {k: v} -> {k: v}
+ * @typedefn Idx = String | Int
+ * @sig [Idx] -> a -> {a} -> {a}
  * @param {Array} path the path to set
- * @param {*} val the new value
- * @param {Object} obj the object to clone
- * @return {Object} a new object similar to the original except along the specified path.
+ * @param {*} val The new value
+ * @param {Object} obj The object to clone
+ * @return {Object} A new object equivalent to the original except along the specified path.
  * @see R.dissocPath
  * @example
  *
  *      R.assocPath(['a', 'b', 'c'], 42, {a: {b: {c: 0}}}); //=> {a: {b: {c: 42}}}
+ *
+ *      // Any missing or non-object keys in path will be overridden
+ *      R.assocPath(['a', 'b', 'c'], 42, {a: 5}); //=> {a: {b: {c: 42}}}
  */
-module.exports = _curry3(function assocPath(path, val, obj) {
-  switch (path.length) {
-    case 0:
-      return val;
-    case 1:
-      return assoc(path[0], val, obj);
-    default:
-      return assoc(path[0], assocPath(_slice(path, 1), val, Object(obj[path[0]])), obj);
+
+
+var assocPath = /*#__PURE__*/_curry3(function assocPath(path, val, obj) {
+  if (path.length === 0) {
+    return val;
+  }
+  var idx = path[0];
+  if (path.length > 1) {
+    var nextObj = !isNil(obj) && _has(idx, obj) ? obj[idx] : _isInteger(path[1]) ? [] : {};
+    val = assocPath(Array.prototype.slice.call(path, 1), val, nextObj);
+  }
+  if (_isInteger(idx) && _isArray(obj)) {
+    var arr = [].concat(obj);
+    arr[idx] = val;
+    return arr;
+  } else {
+    return assoc(idx, val, obj);
   }
 });
+module.exports = assocPath;
+},{"./assoc":21,"./internal/_curry3":28,"./internal/_has":30,"./internal/_isArray":31,"./internal/_isInteger":32,"./isNil":35}],23:[function(require,module,exports){
+var _curry1 = /*#__PURE__*/require('./internal/_curry1');
 
-},{"./assoc":21,"./internal/_curry3":28,"./internal/_slice":31}],23:[function(require,module,exports){
-var _curry1 = require('./internal/_curry1');
-var curryN = require('./curryN');
-
+var curryN = /*#__PURE__*/require('./curryN');
 
 /**
  * Returns a curried equivalent of the provided function. The curried function
@@ -1079,10 +1266,10 @@ var curryN = require('./curryN');
  *   - `g(1, 2)(3)`
  *   - `g(1, 2, 3)`
  *
- * Secondly, the special placeholder value `R.__` may be used to specify
+ * Secondly, the special placeholder value [`R.__`](#__) may be used to specify
  * "gaps", allowing partial application of any combination of arguments,
- * regardless of their positions. If `g` is as above and `_` is `R.__`, the
- * following are equivalent:
+ * regardless of their positions. If `g` is as above and `_` is [`R.__`](#__),
+ * the following are equivalent:
  *
  *   - `g(1, 2, 3)`
  *   - `g(_, 2, 3)(1)`
@@ -1109,16 +1296,20 @@ var curryN = require('./curryN');
  *      var g = f(3);
  *      g(4); //=> 10
  */
-module.exports = _curry1(function curry(fn) {
+
+
+var curry = /*#__PURE__*/_curry1(function curry(fn) {
   return curryN(fn.length, fn);
 });
-
+module.exports = curry;
 },{"./curryN":24,"./internal/_curry1":26}],24:[function(require,module,exports){
-var _arity = require('./internal/_arity');
-var _curry1 = require('./internal/_curry1');
-var _curry2 = require('./internal/_curry2');
-var _curryN = require('./internal/_curryN');
+var _arity = /*#__PURE__*/require('./internal/_arity');
 
+var _curry1 = /*#__PURE__*/require('./internal/_curry1');
+
+var _curry2 = /*#__PURE__*/require('./internal/_curry2');
+
+var _curryN = /*#__PURE__*/require('./internal/_curryN');
 
 /**
  * Returns a curried equivalent of the provided function, with the specified
@@ -1131,10 +1322,10 @@ var _curryN = require('./internal/_curryN');
  *   - `g(1, 2)(3)`
  *   - `g(1, 2, 3)`
  *
- * Secondly, the special placeholder value `R.__` may be used to specify
+ * Secondly, the special placeholder value [`R.__`](#__) may be used to specify
  * "gaps", allowing partial application of any combination of arguments,
- * regardless of their positions. If `g` is as above and `_` is `R.__`, the
- * following are equivalent:
+ * regardless of their positions. If `g` is as above and `_` is [`R.__`](#__),
+ * the following are equivalent:
  *
  *   - `g(1, 2, 3)`
  *   - `g(_, 2, 3)(1)`
@@ -1162,35 +1353,70 @@ var _curryN = require('./internal/_curryN');
  *      var g = f(3);
  *      g(4); //=> 10
  */
-module.exports = _curry2(function curryN(length, fn) {
+
+
+var curryN = /*#__PURE__*/_curry2(function curryN(length, fn) {
   if (length === 1) {
     return _curry1(fn);
   }
   return _arity(length, _curryN(length, [], fn));
 });
-
+module.exports = curryN;
 },{"./internal/_arity":25,"./internal/_curry1":26,"./internal/_curry2":27,"./internal/_curryN":29}],25:[function(require,module,exports){
-module.exports = function _arity(n, fn) {
+function _arity(n, fn) {
   /* eslint-disable no-unused-vars */
   switch (n) {
-    case 0: return function() { return fn.apply(this, arguments); };
-    case 1: return function(a0) { return fn.apply(this, arguments); };
-    case 2: return function(a0, a1) { return fn.apply(this, arguments); };
-    case 3: return function(a0, a1, a2) { return fn.apply(this, arguments); };
-    case 4: return function(a0, a1, a2, a3) { return fn.apply(this, arguments); };
-    case 5: return function(a0, a1, a2, a3, a4) { return fn.apply(this, arguments); };
-    case 6: return function(a0, a1, a2, a3, a4, a5) { return fn.apply(this, arguments); };
-    case 7: return function(a0, a1, a2, a3, a4, a5, a6) { return fn.apply(this, arguments); };
-    case 8: return function(a0, a1, a2, a3, a4, a5, a6, a7) { return fn.apply(this, arguments); };
-    case 9: return function(a0, a1, a2, a3, a4, a5, a6, a7, a8) { return fn.apply(this, arguments); };
-    case 10: return function(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) { return fn.apply(this, arguments); };
-    default: throw new Error('First argument to _arity must be a non-negative integer no greater than ten');
+    case 0:
+      return function () {
+        return fn.apply(this, arguments);
+      };
+    case 1:
+      return function (a0) {
+        return fn.apply(this, arguments);
+      };
+    case 2:
+      return function (a0, a1) {
+        return fn.apply(this, arguments);
+      };
+    case 3:
+      return function (a0, a1, a2) {
+        return fn.apply(this, arguments);
+      };
+    case 4:
+      return function (a0, a1, a2, a3) {
+        return fn.apply(this, arguments);
+      };
+    case 5:
+      return function (a0, a1, a2, a3, a4) {
+        return fn.apply(this, arguments);
+      };
+    case 6:
+      return function (a0, a1, a2, a3, a4, a5) {
+        return fn.apply(this, arguments);
+      };
+    case 7:
+      return function (a0, a1, a2, a3, a4, a5, a6) {
+        return fn.apply(this, arguments);
+      };
+    case 8:
+      return function (a0, a1, a2, a3, a4, a5, a6, a7) {
+        return fn.apply(this, arguments);
+      };
+    case 9:
+      return function (a0, a1, a2, a3, a4, a5, a6, a7, a8) {
+        return fn.apply(this, arguments);
+      };
+    case 10:
+      return function (a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) {
+        return fn.apply(this, arguments);
+      };
+    default:
+      throw new Error('First argument to _arity must be a non-negative integer no greater than ten');
   }
-};
-
+}
+module.exports = _arity;
 },{}],26:[function(require,module,exports){
-var _isPlaceholder = require('./_isPlaceholder');
-
+var _isPlaceholder = /*#__PURE__*/require('./_isPlaceholder');
 
 /**
  * Optimized internal one-arity curry function.
@@ -1200,7 +1426,9 @@ var _isPlaceholder = require('./_isPlaceholder');
  * @param {Function} fn The function to curry.
  * @return {Function} The curried function.
  */
-module.exports = function _curry1(fn) {
+
+
+function _curry1(fn) {
   return function f1(a) {
     if (arguments.length === 0 || _isPlaceholder(a)) {
       return f1;
@@ -1208,12 +1436,12 @@ module.exports = function _curry1(fn) {
       return fn.apply(this, arguments);
     }
   };
-};
+}
+module.exports = _curry1;
+},{"./_isPlaceholder":33}],27:[function(require,module,exports){
+var _curry1 = /*#__PURE__*/require('./_curry1');
 
-},{"./_isPlaceholder":30}],27:[function(require,module,exports){
-var _curry1 = require('./_curry1');
-var _isPlaceholder = require('./_isPlaceholder');
-
+var _isPlaceholder = /*#__PURE__*/require('./_isPlaceholder');
 
 /**
  * Optimized internal two-arity curry function.
@@ -1223,28 +1451,33 @@ var _isPlaceholder = require('./_isPlaceholder');
  * @param {Function} fn The function to curry.
  * @return {Function} The curried function.
  */
-module.exports = function _curry2(fn) {
+
+
+function _curry2(fn) {
   return function f2(a, b) {
     switch (arguments.length) {
       case 0:
         return f2;
       case 1:
-        return _isPlaceholder(a) ? f2
-             : _curry1(function(_b) { return fn(a, _b); });
+        return _isPlaceholder(a) ? f2 : _curry1(function (_b) {
+          return fn(a, _b);
+        });
       default:
-        return _isPlaceholder(a) && _isPlaceholder(b) ? f2
-             : _isPlaceholder(a) ? _curry1(function(_a) { return fn(_a, b); })
-             : _isPlaceholder(b) ? _curry1(function(_b) { return fn(a, _b); })
-             : fn(a, b);
+        return _isPlaceholder(a) && _isPlaceholder(b) ? f2 : _isPlaceholder(a) ? _curry1(function (_a) {
+          return fn(_a, b);
+        }) : _isPlaceholder(b) ? _curry1(function (_b) {
+          return fn(a, _b);
+        }) : fn(a, b);
     }
   };
-};
+}
+module.exports = _curry2;
+},{"./_curry1":26,"./_isPlaceholder":33}],28:[function(require,module,exports){
+var _curry1 = /*#__PURE__*/require('./_curry1');
 
-},{"./_curry1":26,"./_isPlaceholder":30}],28:[function(require,module,exports){
-var _curry1 = require('./_curry1');
-var _curry2 = require('./_curry2');
-var _isPlaceholder = require('./_isPlaceholder');
+var _curry2 = /*#__PURE__*/require('./_curry2');
 
+var _isPlaceholder = /*#__PURE__*/require('./_isPlaceholder');
 
 /**
  * Optimized internal three-arity curry function.
@@ -1254,36 +1487,47 @@ var _isPlaceholder = require('./_isPlaceholder');
  * @param {Function} fn The function to curry.
  * @return {Function} The curried function.
  */
-module.exports = function _curry3(fn) {
+
+
+function _curry3(fn) {
   return function f3(a, b, c) {
     switch (arguments.length) {
       case 0:
         return f3;
       case 1:
-        return _isPlaceholder(a) ? f3
-             : _curry2(function(_b, _c) { return fn(a, _b, _c); });
+        return _isPlaceholder(a) ? f3 : _curry2(function (_b, _c) {
+          return fn(a, _b, _c);
+        });
       case 2:
-        return _isPlaceholder(a) && _isPlaceholder(b) ? f3
-             : _isPlaceholder(a) ? _curry2(function(_a, _c) { return fn(_a, b, _c); })
-             : _isPlaceholder(b) ? _curry2(function(_b, _c) { return fn(a, _b, _c); })
-             : _curry1(function(_c) { return fn(a, b, _c); });
+        return _isPlaceholder(a) && _isPlaceholder(b) ? f3 : _isPlaceholder(a) ? _curry2(function (_a, _c) {
+          return fn(_a, b, _c);
+        }) : _isPlaceholder(b) ? _curry2(function (_b, _c) {
+          return fn(a, _b, _c);
+        }) : _curry1(function (_c) {
+          return fn(a, b, _c);
+        });
       default:
-        return _isPlaceholder(a) && _isPlaceholder(b) && _isPlaceholder(c) ? f3
-             : _isPlaceholder(a) && _isPlaceholder(b) ? _curry2(function(_a, _b) { return fn(_a, _b, c); })
-             : _isPlaceholder(a) && _isPlaceholder(c) ? _curry2(function(_a, _c) { return fn(_a, b, _c); })
-             : _isPlaceholder(b) && _isPlaceholder(c) ? _curry2(function(_b, _c) { return fn(a, _b, _c); })
-             : _isPlaceholder(a) ? _curry1(function(_a) { return fn(_a, b, c); })
-             : _isPlaceholder(b) ? _curry1(function(_b) { return fn(a, _b, c); })
-             : _isPlaceholder(c) ? _curry1(function(_c) { return fn(a, b, _c); })
-             : fn(a, b, c);
+        return _isPlaceholder(a) && _isPlaceholder(b) && _isPlaceholder(c) ? f3 : _isPlaceholder(a) && _isPlaceholder(b) ? _curry2(function (_a, _b) {
+          return fn(_a, _b, c);
+        }) : _isPlaceholder(a) && _isPlaceholder(c) ? _curry2(function (_a, _c) {
+          return fn(_a, b, _c);
+        }) : _isPlaceholder(b) && _isPlaceholder(c) ? _curry2(function (_b, _c) {
+          return fn(a, _b, _c);
+        }) : _isPlaceholder(a) ? _curry1(function (_a) {
+          return fn(_a, b, c);
+        }) : _isPlaceholder(b) ? _curry1(function (_b) {
+          return fn(a, _b, c);
+        }) : _isPlaceholder(c) ? _curry1(function (_c) {
+          return fn(a, b, _c);
+        }) : fn(a, b, c);
     }
   };
-};
+}
+module.exports = _curry3;
+},{"./_curry1":26,"./_curry2":27,"./_isPlaceholder":33}],29:[function(require,module,exports){
+var _arity = /*#__PURE__*/require('./_arity');
 
-},{"./_curry1":26,"./_curry2":27,"./_isPlaceholder":30}],29:[function(require,module,exports){
-var _arity = require('./_arity');
-var _isPlaceholder = require('./_isPlaceholder');
-
+var _isPlaceholder = /*#__PURE__*/require('./_isPlaceholder');
 
 /**
  * Internal curryN function.
@@ -1295,17 +1539,17 @@ var _isPlaceholder = require('./_isPlaceholder');
  * @param {Function} fn The function to curry.
  * @return {Function} The curried function.
  */
-module.exports = function _curryN(length, received, fn) {
-  return function() {
+
+
+function _curryN(length, received, fn) {
+  return function () {
     var combined = [];
     var argsIdx = 0;
     var left = length;
     var combinedIdx = 0;
     while (combinedIdx < received.length || argsIdx < arguments.length) {
       var result;
-      if (combinedIdx < received.length &&
-          (!_isPlaceholder(received[combinedIdx]) ||
-           argsIdx >= arguments.length)) {
+      if (combinedIdx < received.length && (!_isPlaceholder(received[combinedIdx]) || argsIdx >= arguments.length)) {
         result = received[combinedIdx];
       } else {
         result = arguments[argsIdx];
@@ -1317,55 +1561,108 @@ module.exports = function _curryN(length, received, fn) {
       }
       combinedIdx += 1;
     }
-    return left <= 0 ? fn.apply(this, combined)
-                     : _arity(left, _curryN(length, combined, fn));
+    return left <= 0 ? fn.apply(this, combined) : _arity(left, _curryN(length, combined, fn));
   };
-};
-
-},{"./_arity":25,"./_isPlaceholder":30}],30:[function(require,module,exports){
-module.exports = function _isPlaceholder(a) {
-  return a != null &&
-         typeof a === 'object' &&
-         a['@@functional/placeholder'] === true;
-};
-
+}
+module.exports = _curryN;
+},{"./_arity":25,"./_isPlaceholder":33}],30:[function(require,module,exports){
+function _has(prop, obj) {
+  return Object.prototype.hasOwnProperty.call(obj, prop);
+}
+module.exports = _has;
 },{}],31:[function(require,module,exports){
 /**
- * An optimized, private array `slice` implementation.
+ * Tests whether or not an object is an array.
  *
  * @private
- * @param {Arguments|Array} args The array or arguments object to consider.
- * @param {Number} [from=0] The array index to slice from, inclusive.
- * @param {Number} [to=args.length] The array index to slice to, exclusive.
- * @return {Array} A new, sliced array.
+ * @param {*} val The object to test.
+ * @return {Boolean} `true` if `val` is an array, `false` otherwise.
  * @example
  *
- *      _slice([1, 2, 3, 4, 5], 1, 3); //=> [2, 3]
- *
- *      var firstThreeArgs = function(a, b, c, d) {
- *        return _slice(arguments, 0, 3);
- *      };
- *      firstThreeArgs(1, 2, 3, 4); //=> [1, 2, 3]
+ *      _isArray([]); //=> true
+ *      _isArray(null); //=> false
+ *      _isArray({}); //=> false
  */
-module.exports = function _slice(args, from, to) {
-  switch (arguments.length) {
-    case 1: return _slice(args, 0, args.length);
-    case 2: return _slice(args, from, args.length);
-    default:
-      var list = [];
-      var idx = 0;
-      var len = Math.max(0, Math.min(args.length, to) - from);
-      while (idx < len) {
-        list[idx] = args[from + idx];
-        idx += 1;
-      }
-      return list;
-  }
+module.exports = Array.isArray || function _isArray(val) {
+  return val != null && val.length >= 0 && Object.prototype.toString.call(val) === '[object Array]';
 };
-
 },{}],32:[function(require,module,exports){
-var _curry2 = require('./internal/_curry2');
+/**
+ * Determine if the passed argument is an integer.
+ *
+ * @private
+ * @param {*} n
+ * @category Type
+ * @return {Boolean}
+ */
+module.exports = Number.isInteger || function _isInteger(n) {
+  return n << 0 === n;
+};
+},{}],33:[function(require,module,exports){
+function _isPlaceholder(a) {
+       return a != null && typeof a === 'object' && a['@@functional/placeholder'] === true;
+}
+module.exports = _isPlaceholder;
+},{}],34:[function(require,module,exports){
+var _curry2 = /*#__PURE__*/require('./internal/_curry2');
 
+/**
+ * See if an object (`val`) is an instance of the supplied constructor. This
+ * function will check up the inheritance chain, if any.
+ *
+ * @func
+ * @memberOf R
+ * @since v0.3.0
+ * @category Type
+ * @sig (* -> {*}) -> a -> Boolean
+ * @param {Object} ctor A constructor
+ * @param {*} val The value to test
+ * @return {Boolean}
+ * @example
+ *
+ *      R.is(Object, {}); //=> true
+ *      R.is(Number, 1); //=> true
+ *      R.is(Object, 1); //=> false
+ *      R.is(String, 's'); //=> true
+ *      R.is(String, new String('')); //=> true
+ *      R.is(Object, new String('')); //=> true
+ *      R.is(Object, 's'); //=> false
+ *      R.is(Number, {}); //=> false
+ */
+
+
+var is = /*#__PURE__*/_curry2(function is(Ctor, val) {
+  return val != null && val.constructor === Ctor || val instanceof Ctor;
+});
+module.exports = is;
+},{"./internal/_curry2":27}],35:[function(require,module,exports){
+var _curry1 = /*#__PURE__*/require('./internal/_curry1');
+
+/**
+ * Checks if the input value is `null` or `undefined`.
+ *
+ * @func
+ * @memberOf R
+ * @since v0.9.0
+ * @category Type
+ * @sig * -> Boolean
+ * @param {*} x The value to test.
+ * @return {Boolean} `true` if `x` is `undefined` or `null`, otherwise `false`.
+ * @example
+ *
+ *      R.isNil(null); //=> true
+ *      R.isNil(undefined); //=> true
+ *      R.isNil(0); //=> false
+ *      R.isNil([]); //=> false
+ */
+
+
+var isNil = /*#__PURE__*/_curry1(function isNil(x) {
+  return x == null;
+});
+module.exports = isNil;
+},{"./internal/_curry1":26}],36:[function(require,module,exports){
+var _curry2 = /*#__PURE__*/require('./internal/_curry2');
 
 /**
  * Retrieve the value at a given path.
@@ -1374,16 +1671,20 @@ var _curry2 = require('./internal/_curry2');
  * @memberOf R
  * @since v0.2.0
  * @category Object
- * @sig [String] -> {k: v} -> v | Undefined
+ * @typedefn Idx = String | Int
+ * @sig [Idx] -> {a} -> a | Undefined
  * @param {Array} path The path to use.
  * @param {Object} obj The object to retrieve the nested property from.
  * @return {*} The data at `path`.
+ * @see R.prop
  * @example
  *
  *      R.path(['a', 'b'], {a: {b: 2}}); //=> 2
  *      R.path(['a', 'b'], {c: {b: 2}}); //=> undefined
  */
-module.exports = _curry2(function path(paths, obj) {
+
+
+var path = /*#__PURE__*/_curry2(function path(paths, obj) {
   var val = obj;
   var idx = 0;
   while (idx < paths.length) {
@@ -1395,289 +1696,40 @@ module.exports = _curry2(function path(paths, obj) {
   }
   return val;
 });
-
-},{"./internal/_curry2":27}],33:[function(require,module,exports){
+module.exports = path;
+},{"./internal/_curry2":27}],37:[function(require,module,exports){
 'use strict';
 
-var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
-
 exports.__esModule = true;
-exports["default"] = applyMiddleware;
-
-var _compose = require('./compose');
-
-var _compose2 = _interopRequireDefault(_compose);
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { "default": obj }; }
-
-/**
- * Creates a store enhancer that applies middleware to the dispatch method
- * of the Redux store. This is handy for a variety of tasks, such as expressing
- * asynchronous actions in a concise manner, or logging every action payload.
- *
- * See `redux-thunk` package as an example of the Redux middleware.
- *
- * Because middleware is potentially asynchronous, this should be the first
- * store enhancer in the composition chain.
- *
- * Note that each middleware will be given the `dispatch` and `getState` functions
- * as named arguments.
- *
- * @param {...Function} middlewares The middleware chain to be applied.
- * @returns {Function} A store enhancer applying the middleware.
- */
-function applyMiddleware() {
-  for (var _len = arguments.length, middlewares = Array(_len), _key = 0; _key < _len; _key++) {
-    middlewares[_key] = arguments[_key];
-  }
-
-  return function (createStore) {
-    return function (reducer, initialState, enhancer) {
-      var store = createStore(reducer, initialState, enhancer);
-      var _dispatch = store.dispatch;
-      var chain = [];
-
-      var middlewareAPI = {
-        getState: store.getState,
-        dispatch: function dispatch(action) {
-          return _dispatch(action);
+function createThunkMiddleware(extraArgument) {
+  return function (_ref) {
+    var dispatch = _ref.dispatch,
+        getState = _ref.getState;
+    return function (next) {
+      return function (action) {
+        if (typeof action === 'function') {
+          return action(dispatch, getState, extraArgument);
         }
-      };
-      chain = middlewares.map(function (middleware) {
-        return middleware(middlewareAPI);
-      });
-      _dispatch = _compose2["default"].apply(undefined, chain)(store.dispatch);
 
-      return _extends({}, store, {
-        dispatch: _dispatch
-      });
+        return next(action);
+      };
     };
   };
 }
-},{"./compose":36}],34:[function(require,module,exports){
-'use strict';
 
-exports.__esModule = true;
-exports["default"] = bindActionCreators;
-function bindActionCreator(actionCreator, dispatch) {
-  return function () {
-    return dispatch(actionCreator.apply(undefined, arguments));
-  };
-}
+var thunk = createThunkMiddleware();
+thunk.withExtraArgument = createThunkMiddleware;
 
-/**
- * Turns an object whose values are action creators, into an object with the
- * same keys, but with every function wrapped into a `dispatch` call so they
- * may be invoked directly. This is just a convenience method, as you can call
- * `store.dispatch(MyActionCreators.doSomething())` yourself just fine.
- *
- * For convenience, you can also pass a single function as the first argument,
- * and get a function in return.
- *
- * @param {Function|Object} actionCreators An object whose values are action
- * creator functions. One handy way to obtain it is to use ES6 `import * as`
- * syntax. You may also pass a single function.
- *
- * @param {Function} dispatch The `dispatch` function available on your Redux
- * store.
- *
- * @returns {Function|Object} The object mimicking the original object, but with
- * every action creator wrapped into the `dispatch` call. If you passed a
- * function as `actionCreators`, the return value will also be a single
- * function.
- */
-function bindActionCreators(actionCreators, dispatch) {
-  if (typeof actionCreators === 'function') {
-    return bindActionCreator(actionCreators, dispatch);
-  }
-
-  if (typeof actionCreators !== 'object' || actionCreators === null) {
-    throw new Error('bindActionCreators expected an object or a function, instead received ' + (actionCreators === null ? 'null' : typeof actionCreators) + '. ' + 'Did you write "import ActionCreators from" instead of "import * as ActionCreators from"?');
-  }
-
-  var keys = Object.keys(actionCreators);
-  var boundActionCreators = {};
-  for (var i = 0; i < keys.length; i++) {
-    var key = keys[i];
-    var actionCreator = actionCreators[key];
-    if (typeof actionCreator === 'function') {
-      boundActionCreators[key] = bindActionCreator(actionCreator, dispatch);
-    }
-  }
-  return boundActionCreators;
-}
-},{}],35:[function(require,module,exports){
+exports['default'] = thunk;
+},{}],38:[function(require,module,exports){
 (function (process){
 'use strict';
 
-exports.__esModule = true;
-exports["default"] = combineReducers;
+Object.defineProperty(exports, '__esModule', { value: true });
 
-var _createStore = require('./createStore');
+function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
-var _isPlainObject = require('lodash/isPlainObject');
-
-var _isPlainObject2 = _interopRequireDefault(_isPlainObject);
-
-var _warning = require('./utils/warning');
-
-var _warning2 = _interopRequireDefault(_warning);
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { "default": obj }; }
-
-function getUndefinedStateErrorMessage(key, action) {
-  var actionType = action && action.type;
-  var actionName = actionType && '"' + actionType.toString() + '"' || 'an action';
-
-  return 'Reducer "' + key + '" returned undefined handling ' + actionName + '. ' + 'To ignore an action, you must explicitly return the previous state.';
-}
-
-function getUnexpectedStateShapeWarningMessage(inputState, reducers, action) {
-  var reducerKeys = Object.keys(reducers);
-  var argumentName = action && action.type === _createStore.ActionTypes.INIT ? 'initialState argument passed to createStore' : 'previous state received by the reducer';
-
-  if (reducerKeys.length === 0) {
-    return 'Store does not have a valid reducer. Make sure the argument passed ' + 'to combineReducers is an object whose values are reducers.';
-  }
-
-  if (!(0, _isPlainObject2["default"])(inputState)) {
-    return 'The ' + argumentName + ' has unexpected type of "' + {}.toString.call(inputState).match(/\s([a-z|A-Z]+)/)[1] + '". Expected argument to be an object with the following ' + ('keys: "' + reducerKeys.join('", "') + '"');
-  }
-
-  var unexpectedKeys = Object.keys(inputState).filter(function (key) {
-    return !reducers.hasOwnProperty(key);
-  });
-
-  if (unexpectedKeys.length > 0) {
-    return 'Unexpected ' + (unexpectedKeys.length > 1 ? 'keys' : 'key') + ' ' + ('"' + unexpectedKeys.join('", "') + '" found in ' + argumentName + '. ') + 'Expected to find one of the known reducer keys instead: ' + ('"' + reducerKeys.join('", "') + '". Unexpected keys will be ignored.');
-  }
-}
-
-function assertReducerSanity(reducers) {
-  Object.keys(reducers).forEach(function (key) {
-    var reducer = reducers[key];
-    var initialState = reducer(undefined, { type: _createStore.ActionTypes.INIT });
-
-    if (typeof initialState === 'undefined') {
-      throw new Error('Reducer "' + key + '" returned undefined during initialization. ' + 'If the state passed to the reducer is undefined, you must ' + 'explicitly return the initial state. The initial state may ' + 'not be undefined.');
-    }
-
-    var type = '@@redux/PROBE_UNKNOWN_ACTION_' + Math.random().toString(36).substring(7).split('').join('.');
-    if (typeof reducer(undefined, { type: type }) === 'undefined') {
-      throw new Error('Reducer "' + key + '" returned undefined when probed with a random type. ' + ('Don\'t try to handle ' + _createStore.ActionTypes.INIT + ' or other actions in "redux/*" ') + 'namespace. They are considered private. Instead, you must return the ' + 'current state for any unknown actions, unless it is undefined, ' + 'in which case you must return the initial state, regardless of the ' + 'action type. The initial state may not be undefined.');
-    }
-  });
-}
-
-/**
- * Turns an object whose values are different reducer functions, into a single
- * reducer function. It will call every child reducer, and gather their results
- * into a single state object, whose keys correspond to the keys of the passed
- * reducer functions.
- *
- * @param {Object} reducers An object whose values correspond to different
- * reducer functions that need to be combined into one. One handy way to obtain
- * it is to use ES6 `import * as reducers` syntax. The reducers may never return
- * undefined for any action. Instead, they should return their initial state
- * if the state passed to them was undefined, and the current state for any
- * unrecognized action.
- *
- * @returns {Function} A reducer function that invokes every reducer inside the
- * passed object, and builds a state object with the same shape.
- */
-function combineReducers(reducers) {
-  var reducerKeys = Object.keys(reducers);
-  var finalReducers = {};
-  for (var i = 0; i < reducerKeys.length; i++) {
-    var key = reducerKeys[i];
-    if (typeof reducers[key] === 'function') {
-      finalReducers[key] = reducers[key];
-    }
-  }
-  var finalReducerKeys = Object.keys(finalReducers);
-
-  var sanityError;
-  try {
-    assertReducerSanity(finalReducers);
-  } catch (e) {
-    sanityError = e;
-  }
-
-  return function combination() {
-    var state = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
-    var action = arguments[1];
-
-    if (sanityError) {
-      throw sanityError;
-    }
-
-    if (process.env.NODE_ENV !== 'production') {
-      var warningMessage = getUnexpectedStateShapeWarningMessage(state, finalReducers, action);
-      if (warningMessage) {
-        (0, _warning2["default"])(warningMessage);
-      }
-    }
-
-    var hasChanged = false;
-    var nextState = {};
-    for (var i = 0; i < finalReducerKeys.length; i++) {
-      var key = finalReducerKeys[i];
-      var reducer = finalReducers[key];
-      var previousStateForKey = state[key];
-      var nextStateForKey = reducer(previousStateForKey, action);
-      if (typeof nextStateForKey === 'undefined') {
-        var errorMessage = getUndefinedStateErrorMessage(key, action);
-        throw new Error(errorMessage);
-      }
-      nextState[key] = nextStateForKey;
-      hasChanged = hasChanged || nextStateForKey !== previousStateForKey;
-    }
-    return hasChanged ? nextState : state;
-  };
-}
-}).call(this,require('_process'))
-},{"./createStore":37,"./utils/warning":39,"_process":3,"lodash/isPlainObject":42}],36:[function(require,module,exports){
-"use strict";
-
-exports.__esModule = true;
-exports["default"] = compose;
-/**
- * Composes single-argument functions from right to left.
- *
- * @param {...Function} funcs The functions to compose.
- * @returns {Function} A function obtained by composing functions from right to
- * left. For example, compose(f, g, h) is identical to arg => f(g(h(arg))).
- */
-function compose() {
-  for (var _len = arguments.length, funcs = Array(_len), _key = 0; _key < _len; _key++) {
-    funcs[_key] = arguments[_key];
-  }
-
-  return function () {
-    if (funcs.length === 0) {
-      return arguments.length <= 0 ? undefined : arguments[0];
-    }
-
-    var last = funcs[funcs.length - 1];
-    var rest = funcs.slice(0, -1);
-
-    return rest.reduceRight(function (composed, f) {
-      return f(composed);
-    }, last.apply(undefined, arguments));
-  };
-}
-},{}],37:[function(require,module,exports){
-'use strict';
-
-exports.__esModule = true;
-exports.ActionTypes = undefined;
-exports["default"] = createStore;
-
-var _isPlainObject = require('lodash/isPlainObject');
-
-var _isPlainObject2 = _interopRequireDefault(_isPlainObject);
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { "default": obj }; }
+var $$observable = _interopDefault(require('symbol-observable'));
 
 /**
  * These are private action types reserved by Redux.
@@ -1685,9 +1737,45 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { "d
  * If the current state is undefined, you must return the initial state.
  * Do not reference these action types directly in your code.
  */
-var ActionTypes = exports.ActionTypes = {
-  INIT: '@@redux/INIT'
+var ActionTypes = {
+  INIT: '@@redux/INIT' + Math.random().toString(36).substring(7).split('').join('.'),
+  REPLACE: '@@redux/REPLACE' + Math.random().toString(36).substring(7).split('').join('.')
 };
+
+var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) {
+  return typeof obj;
+} : function (obj) {
+  return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj;
+};
+
+var _extends = Object.assign || function (target) {
+  for (var i = 1; i < arguments.length; i++) {
+    var source = arguments[i];
+
+    for (var key in source) {
+      if (Object.prototype.hasOwnProperty.call(source, key)) {
+        target[key] = source[key];
+      }
+    }
+  }
+
+  return target;
+};
+
+/**
+ * @param {any} obj The object to inspect.
+ * @returns {boolean} True if the argument appears to be a plain object.
+ */
+function isPlainObject(obj) {
+  if ((typeof obj === 'undefined' ? 'undefined' : _typeof(obj)) !== 'object' || obj === null) return false;
+
+  var proto = obj;
+  while (Object.getPrototypeOf(proto) !== null) {
+    proto = Object.getPrototypeOf(proto);
+  }
+
+  return Object.getPrototypeOf(obj) === proto;
+}
 
 /**
  * Creates a Redux store that holds the state tree.
@@ -1700,13 +1788,13 @@ var ActionTypes = exports.ActionTypes = {
  * @param {Function} reducer A function that returns the next state tree, given
  * the current state tree and the action to handle.
  *
- * @param {any} [initialState] The initial state. You may optionally specify it
+ * @param {any} [preloadedState] The initial state. You may optionally specify it
  * to hydrate the state from the server in universal apps, or to restore a
  * previously serialized user session.
  * If you use `combineReducers` to produce the root reducer function, this must be
  * an object with the same shape as `combineReducers` keys.
  *
- * @param {Function} enhancer The store enhancer. You may optionally specify it
+ * @param {Function} [enhancer] The store enhancer. You may optionally specify it
  * to enhance the store with third-party capabilities such as middleware,
  * time travel, persistence, etc. The only store enhancer that ships with Redux
  * is `applyMiddleware()`.
@@ -1714,10 +1802,12 @@ var ActionTypes = exports.ActionTypes = {
  * @returns {Store} A Redux store that lets you read the state, dispatch actions
  * and subscribe to changes.
  */
-function createStore(reducer, initialState, enhancer) {
-  if (typeof initialState === 'function' && typeof enhancer === 'undefined') {
-    enhancer = initialState;
-    initialState = undefined;
+function createStore(reducer, preloadedState, enhancer) {
+  var _ref2;
+
+  if (typeof preloadedState === 'function' && typeof enhancer === 'undefined') {
+    enhancer = preloadedState;
+    preloadedState = undefined;
   }
 
   if (typeof enhancer !== 'undefined') {
@@ -1725,7 +1815,7 @@ function createStore(reducer, initialState, enhancer) {
       throw new Error('Expected the enhancer to be a function.');
     }
 
-    return enhancer(createStore)(reducer, initialState);
+    return enhancer(createStore)(reducer, preloadedState);
   }
 
   if (typeof reducer !== 'function') {
@@ -1733,7 +1823,7 @@ function createStore(reducer, initialState, enhancer) {
   }
 
   var currentReducer = reducer;
-  var currentState = initialState;
+  var currentState = preloadedState;
   var currentListeners = [];
   var nextListeners = currentListeners;
   var isDispatching = false;
@@ -1750,6 +1840,10 @@ function createStore(reducer, initialState, enhancer) {
    * @returns {any} The current state tree of your application.
    */
   function getState() {
+    if (isDispatching) {
+      throw new Error('You may not call store.getState() while the reducer is executing. ' + 'The reducer has already received the state as an argument. ' + 'Pass it down from the top reducer instead of reading it from the store.');
+    }
+
     return currentState;
   }
 
@@ -1767,7 +1861,7 @@ function createStore(reducer, initialState, enhancer) {
    * However, the next `dispatch()` call, whether nested or not, will use a more
    * recent snapshot of the subscription list.
    *
-   * 2. The listener should not expect to see all states changes, as the state
+   * 2. The listener should not expect to see all state changes, as the state
    * might have been updated multiple times during a nested `dispatch()` before
    * the listener is called. It is, however, guaranteed that all subscribers
    * registered before the `dispatch()` started will be called with the latest
@@ -1778,7 +1872,11 @@ function createStore(reducer, initialState, enhancer) {
    */
   function subscribe(listener) {
     if (typeof listener !== 'function') {
-      throw new Error('Expected listener to be a function.');
+      throw new Error('Expected the listener to be a function.');
+    }
+
+    if (isDispatching) {
+      throw new Error('You may not call store.subscribe() while the reducer is executing. ' + 'If you would like to be notified after the store has been updated, subscribe from a ' + 'component and invoke store.getState() in the callback to access the latest state. ' + 'See https://redux.js.org/api-reference/store#subscribe(listener) for more details.');
     }
 
     var isSubscribed = true;
@@ -1789,6 +1887,10 @@ function createStore(reducer, initialState, enhancer) {
     return function unsubscribe() {
       if (!isSubscribed) {
         return;
+      }
+
+      if (isDispatching) {
+        throw new Error('You may not unsubscribe from a store listener while the reducer is executing. ' + 'See https://redux.js.org/api-reference/store#subscribe(listener) for more details.');
       }
 
       isSubscribed = false;
@@ -1825,7 +1927,7 @@ function createStore(reducer, initialState, enhancer) {
    * return something else (for example, a Promise you can await).
    */
   function dispatch(action) {
-    if (!(0, _isPlainObject2["default"])(action)) {
+    if (!isPlainObject(action)) {
       throw new Error('Actions must be plain objects. ' + 'Use custom middleware for async actions.');
     }
 
@@ -1846,7 +1948,8 @@ function createStore(reducer, initialState, enhancer) {
 
     var listeners = currentListeners = nextListeners;
     for (var i = 0; i < listeners.length; i++) {
-      listeners[i]();
+      var listener = listeners[i];
+      listener();
     }
 
     return action;
@@ -1868,7 +1971,46 @@ function createStore(reducer, initialState, enhancer) {
     }
 
     currentReducer = nextReducer;
-    dispatch({ type: ActionTypes.INIT });
+    dispatch({ type: ActionTypes.REPLACE });
+  }
+
+  /**
+   * Interoperability point for observable/reactive libraries.
+   * @returns {observable} A minimal observable of state changes.
+   * For more information, see the observable proposal:
+   * https://github.com/tc39/proposal-observable
+   */
+  function observable() {
+    var _ref;
+
+    var outerSubscribe = subscribe;
+    return _ref = {
+      /**
+       * The minimal observable subscription method.
+       * @param {Object} observer Any object that can be used as an observer.
+       * The observer object should have a `next` method.
+       * @returns {subscription} An object with an `unsubscribe` method that can
+       * be used to unsubscribe the observable from the store, and prevent further
+       * emission of values from the observable.
+       */
+      subscribe: function subscribe(observer) {
+        if ((typeof observer === 'undefined' ? 'undefined' : _typeof(observer)) !== 'object' || observer === null) {
+          throw new TypeError('Expected the observer to be an object.');
+        }
+
+        function observeState() {
+          if (observer.next) {
+            observer.next(getState());
+          }
+        }
+
+        observeState();
+        var unsubscribe = outerSubscribe(observeState);
+        return { unsubscribe: unsubscribe };
+      }
+    }, _ref[$$observable] = function () {
+      return this;
+    }, _ref;
   }
 
   // When a store is created, an "INIT" action is dispatched so that every
@@ -1876,67 +2018,14 @@ function createStore(reducer, initialState, enhancer) {
   // the initial state tree.
   dispatch({ type: ActionTypes.INIT });
 
-  return {
+  return _ref2 = {
     dispatch: dispatch,
     subscribe: subscribe,
     getState: getState,
     replaceReducer: replaceReducer
-  };
-}
-},{"lodash/isPlainObject":42}],38:[function(require,module,exports){
-(function (process){
-'use strict';
-
-exports.__esModule = true;
-exports.compose = exports.applyMiddleware = exports.bindActionCreators = exports.combineReducers = exports.createStore = undefined;
-
-var _createStore = require('./createStore');
-
-var _createStore2 = _interopRequireDefault(_createStore);
-
-var _combineReducers = require('./combineReducers');
-
-var _combineReducers2 = _interopRequireDefault(_combineReducers);
-
-var _bindActionCreators = require('./bindActionCreators');
-
-var _bindActionCreators2 = _interopRequireDefault(_bindActionCreators);
-
-var _applyMiddleware = require('./applyMiddleware');
-
-var _applyMiddleware2 = _interopRequireDefault(_applyMiddleware);
-
-var _compose = require('./compose');
-
-var _compose2 = _interopRequireDefault(_compose);
-
-var _warning = require('./utils/warning');
-
-var _warning2 = _interopRequireDefault(_warning);
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { "default": obj }; }
-
-/*
-* This is a dummy function to check if the function name has been altered by minification.
-* If the function has been minified and NODE_ENV !== 'production', warn the user.
-*/
-function isCrushed() {}
-
-if (process.env.NODE_ENV !== 'production' && typeof isCrushed.name === 'string' && isCrushed.name !== 'isCrushed') {
-  (0, _warning2["default"])('You are currently using minified code outside of NODE_ENV === \'production\'. ' + 'This means that you are running a slower development build of Redux. ' + 'You can use loose-envify (https://github.com/zertosh/loose-envify) for browserify ' + 'or DefinePlugin for webpack (http://stackoverflow.com/questions/30030031) ' + 'to ensure you have the correct code for your production build.');
+  }, _ref2[$$observable] = observable, _ref2;
 }
 
-exports.createStore = _createStore2["default"];
-exports.combineReducers = _combineReducers2["default"];
-exports.bindActionCreators = _bindActionCreators2["default"];
-exports.applyMiddleware = _applyMiddleware2["default"];
-exports.compose = _compose2["default"];
-}).call(this,require('_process'))
-},{"./applyMiddleware":33,"./bindActionCreators":34,"./combineReducers":35,"./compose":36,"./createStore":37,"./utils/warning":39,"_process":3}],39:[function(require,module,exports){
-'use strict';
-
-exports.__esModule = true;
-exports["default"] = warning;
 /**
  * Prints a warning in the console if it exists.
  *
@@ -1950,156 +2039,368 @@ function warning(message) {
   }
   /* eslint-enable no-console */
   try {
-    // This error was thrown as a convenience so that you can use this stack
-    // to find the callsite that caused this warning to fire.
+    // This error was thrown as a convenience so that if you enable
+    // "break on all exceptions" in your console,
+    // it would pause the execution at this line.
     throw new Error(message);
-    /* eslint-disable no-empty */
-  } catch (e) {}
-  /* eslint-enable no-empty */
+  } catch (e) {} // eslint-disable-line no-empty
 }
-},{}],40:[function(require,module,exports){
-/**
- * Checks if `value` is a host object in IE < 9.
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is a host object, else `false`.
- */
-function isHostObject(value) {
-  // Many host objects are `Object` objects that can coerce to strings
-  // despite having improperly defined `toString` methods.
-  var result = false;
-  if (value != null && typeof value.toString != 'function') {
-    try {
-      result = !!(value + '');
-    } catch (e) {}
+
+function getUndefinedStateErrorMessage(key, action) {
+  var actionType = action && action.type;
+  var actionDescription = actionType && 'action "' + String(actionType) + '"' || 'an action';
+
+  return 'Given ' + actionDescription + ', reducer "' + key + '" returned undefined. ' + 'To ignore an action, you must explicitly return the previous state. ' + 'If you want this reducer to hold no value, you can return null instead of undefined.';
+}
+
+function getUnexpectedStateShapeWarningMessage(inputState, reducers, action, unexpectedKeyCache) {
+  var reducerKeys = Object.keys(reducers);
+  var argumentName = action && action.type === ActionTypes.INIT ? 'preloadedState argument passed to createStore' : 'previous state received by the reducer';
+
+  if (reducerKeys.length === 0) {
+    return 'Store does not have a valid reducer. Make sure the argument passed ' + 'to combineReducers is an object whose values are reducers.';
   }
-  return result;
+
+  if (!isPlainObject(inputState)) {
+    return 'The ' + argumentName + ' has unexpected type of "' + {}.toString.call(inputState).match(/\s([a-z|A-Z]+)/)[1] + '". Expected argument to be an object with the following ' + ('keys: "' + reducerKeys.join('", "') + '"');
+  }
+
+  var unexpectedKeys = Object.keys(inputState).filter(function (key) {
+    return !reducers.hasOwnProperty(key) && !unexpectedKeyCache[key];
+  });
+
+  unexpectedKeys.forEach(function (key) {
+    unexpectedKeyCache[key] = true;
+  });
+
+  if (action && action.type === ActionTypes.REPLACE) return;
+
+  if (unexpectedKeys.length > 0) {
+    return 'Unexpected ' + (unexpectedKeys.length > 1 ? 'keys' : 'key') + ' ' + ('"' + unexpectedKeys.join('", "') + '" found in ' + argumentName + '. ') + 'Expected to find one of the known reducer keys instead: ' + ('"' + reducerKeys.join('", "') + '". Unexpected keys will be ignored.');
+  }
 }
 
-module.exports = isHostObject;
+function assertReducerShape(reducers) {
+  Object.keys(reducers).forEach(function (key) {
+    var reducer = reducers[key];
+    var initialState = reducer(undefined, { type: ActionTypes.INIT });
 
+    if (typeof initialState === 'undefined') {
+      throw new Error('Reducer "' + key + '" returned undefined during initialization. ' + 'If the state passed to the reducer is undefined, you must ' + 'explicitly return the initial state. The initial state may ' + 'not be undefined. If you don\'t want to set a value for this reducer, ' + 'you can use null instead of undefined.');
+    }
+
+    var type = '@@redux/PROBE_UNKNOWN_ACTION_' + Math.random().toString(36).substring(7).split('').join('.');
+    if (typeof reducer(undefined, { type: type }) === 'undefined') {
+      throw new Error('Reducer "' + key + '" returned undefined when probed with a random type. ' + ('Don\'t try to handle ' + ActionTypes.INIT + ' or other actions in "redux/*" ') + 'namespace. They are considered private. Instead, you must return the ' + 'current state for any unknown actions, unless it is undefined, ' + 'in which case you must return the initial state, regardless of the ' + 'action type. The initial state may not be undefined, but can be null.');
+    }
+  });
+}
+
+/**
+ * Turns an object whose values are different reducer functions, into a single
+ * reducer function. It will call every child reducer, and gather their results
+ * into a single state object, whose keys correspond to the keys of the passed
+ * reducer functions.
+ *
+ * @param {Object} reducers An object whose values correspond to different
+ * reducer functions that need to be combined into one. One handy way to obtain
+ * it is to use ES6 `import * as reducers` syntax. The reducers may never return
+ * undefined for any action. Instead, they should return their initial state
+ * if the state passed to them was undefined, and the current state for any
+ * unrecognized action.
+ *
+ * @returns {Function} A reducer function that invokes every reducer inside the
+ * passed object, and builds a state object with the same shape.
+ */
+function combineReducers(reducers) {
+  var reducerKeys = Object.keys(reducers);
+  var finalReducers = {};
+  for (var i = 0; i < reducerKeys.length; i++) {
+    var key = reducerKeys[i];
+
+    if (process.env.NODE_ENV !== 'production') {
+      if (typeof reducers[key] === 'undefined') {
+        warning('No reducer provided for key "' + key + '"');
+      }
+    }
+
+    if (typeof reducers[key] === 'function') {
+      finalReducers[key] = reducers[key];
+    }
+  }
+  var finalReducerKeys = Object.keys(finalReducers);
+
+  var unexpectedKeyCache = void 0;
+  if (process.env.NODE_ENV !== 'production') {
+    unexpectedKeyCache = {};
+  }
+
+  var shapeAssertionError = void 0;
+  try {
+    assertReducerShape(finalReducers);
+  } catch (e) {
+    shapeAssertionError = e;
+  }
+
+  return function combination() {
+    var state = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+    var action = arguments[1];
+
+    if (shapeAssertionError) {
+      throw shapeAssertionError;
+    }
+
+    if (process.env.NODE_ENV !== 'production') {
+      var warningMessage = getUnexpectedStateShapeWarningMessage(state, finalReducers, action, unexpectedKeyCache);
+      if (warningMessage) {
+        warning(warningMessage);
+      }
+    }
+
+    var hasChanged = false;
+    var nextState = {};
+    for (var _i = 0; _i < finalReducerKeys.length; _i++) {
+      var _key = finalReducerKeys[_i];
+      var reducer = finalReducers[_key];
+      var previousStateForKey = state[_key];
+      var nextStateForKey = reducer(previousStateForKey, action);
+      if (typeof nextStateForKey === 'undefined') {
+        var errorMessage = getUndefinedStateErrorMessage(_key, action);
+        throw new Error(errorMessage);
+      }
+      nextState[_key] = nextStateForKey;
+      hasChanged = hasChanged || nextStateForKey !== previousStateForKey;
+    }
+    return hasChanged ? nextState : state;
+  };
+}
+
+function bindActionCreator(actionCreator, dispatch) {
+  return function () {
+    return dispatch(actionCreator.apply(this, arguments));
+  };
+}
+
+/**
+ * Turns an object whose values are action creators, into an object with the
+ * same keys, but with every function wrapped into a `dispatch` call so they
+ * may be invoked directly. This is just a convenience method, as you can call
+ * `store.dispatch(MyActionCreators.doSomething())` yourself just fine.
+ *
+ * For convenience, you can also pass a single function as the first argument,
+ * and get a function in return.
+ *
+ * @param {Function|Object} actionCreators An object whose values are action
+ * creator functions. One handy way to obtain it is to use ES6 `import * as`
+ * syntax. You may also pass a single function.
+ *
+ * @param {Function} dispatch The `dispatch` function available on your Redux
+ * store.
+ *
+ * @returns {Function|Object} The object mimicking the original object, but with
+ * every action creator wrapped into the `dispatch` call. If you passed a
+ * function as `actionCreators`, the return value will also be a single
+ * function.
+ */
+function bindActionCreators(actionCreators, dispatch) {
+  if (typeof actionCreators === 'function') {
+    return bindActionCreator(actionCreators, dispatch);
+  }
+
+  if ((typeof actionCreators === 'undefined' ? 'undefined' : _typeof(actionCreators)) !== 'object' || actionCreators === null) {
+    throw new Error('bindActionCreators expected an object or a function, instead received ' + (actionCreators === null ? 'null' : typeof actionCreators === 'undefined' ? 'undefined' : _typeof(actionCreators)) + '. ' + 'Did you write "import ActionCreators from" instead of "import * as ActionCreators from"?');
+  }
+
+  var keys = Object.keys(actionCreators);
+  var boundActionCreators = {};
+  for (var i = 0; i < keys.length; i++) {
+    var key = keys[i];
+    var actionCreator = actionCreators[key];
+    if (typeof actionCreator === 'function') {
+      boundActionCreators[key] = bindActionCreator(actionCreator, dispatch);
+    }
+  }
+  return boundActionCreators;
+}
+
+/**
+ * Composes single-argument functions from right to left. The rightmost
+ * function can take multiple arguments as it provides the signature for
+ * the resulting composite function.
+ *
+ * @param {...Function} funcs The functions to compose.
+ * @returns {Function} A function obtained by composing the argument functions
+ * from right to left. For example, compose(f, g, h) is identical to doing
+ * (...args) => f(g(h(...args))).
+ */
+
+function compose() {
+  for (var _len = arguments.length, funcs = Array(_len), _key = 0; _key < _len; _key++) {
+    funcs[_key] = arguments[_key];
+  }
+
+  if (funcs.length === 0) {
+    return function (arg) {
+      return arg;
+    };
+  }
+
+  if (funcs.length === 1) {
+    return funcs[0];
+  }
+
+  return funcs.reduce(function (a, b) {
+    return function () {
+      return a(b.apply(undefined, arguments));
+    };
+  });
+}
+
+/**
+ * Creates a store enhancer that applies middleware to the dispatch method
+ * of the Redux store. This is handy for a variety of tasks, such as expressing
+ * asynchronous actions in a concise manner, or logging every action payload.
+ *
+ * See `redux-thunk` package as an example of the Redux middleware.
+ *
+ * Because middleware is potentially asynchronous, this should be the first
+ * store enhancer in the composition chain.
+ *
+ * Note that each middleware will be given the `dispatch` and `getState` functions
+ * as named arguments.
+ *
+ * @param {...Function} middlewares The middleware chain to be applied.
+ * @returns {Function} A store enhancer applying the middleware.
+ */
+function applyMiddleware() {
+  for (var _len = arguments.length, middlewares = Array(_len), _key = 0; _key < _len; _key++) {
+    middlewares[_key] = arguments[_key];
+  }
+
+  return function (createStore) {
+    return function () {
+      for (var _len2 = arguments.length, args = Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
+        args[_key2] = arguments[_key2];
+      }
+
+      var store = createStore.apply(undefined, args);
+      var _dispatch = function dispatch() {
+        throw new Error('Dispatching while constructing your middleware is not allowed. ' + 'Other middleware would not be applied to this dispatch.');
+      };
+
+      var middlewareAPI = {
+        getState: store.getState,
+        dispatch: function dispatch() {
+          return _dispatch.apply(undefined, arguments);
+        }
+      };
+      var chain = middlewares.map(function (middleware) {
+        return middleware(middlewareAPI);
+      });
+      _dispatch = compose.apply(undefined, chain)(store.dispatch);
+
+      return _extends({}, store, {
+        dispatch: _dispatch
+      });
+    };
+  };
+}
+
+/*
+ * This is a dummy function to check if the function name has been altered by minification.
+ * If the function has been minified and NODE_ENV !== 'production', warn the user.
+ */
+function isCrushed() {}
+
+if (process.env.NODE_ENV !== 'production' && typeof isCrushed.name === 'string' && isCrushed.name !== 'isCrushed') {
+  warning("You are currently using minified code outside of NODE_ENV === 'production'. " + 'This means that you are running a slower development build of Redux. ' + 'You can use loose-envify (https://github.com/zertosh/loose-envify) for browserify ' + 'or DefinePlugin for webpack (http://stackoverflow.com/questions/30030031) ' + 'to ensure you have the correct code for your production build.');
+}
+
+exports.createStore = createStore;
+exports.combineReducers = combineReducers;
+exports.bindActionCreators = bindActionCreators;
+exports.applyMiddleware = applyMiddleware;
+exports.compose = compose;
+exports.__DO_NOT_USE__ActionTypes = ActionTypes;
+
+}).call(this,require('_process'))
+},{"_process":3,"symbol-observable":39}],39:[function(require,module,exports){
+(function (global){
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _ponyfill = require('./ponyfill.js');
+
+var _ponyfill2 = _interopRequireDefault(_ponyfill);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
+
+var root; /* global window */
+
+
+if (typeof self !== 'undefined') {
+  root = self;
+} else if (typeof window !== 'undefined') {
+  root = window;
+} else if (typeof global !== 'undefined') {
+  root = global;
+} else if (typeof module !== 'undefined') {
+  root = module;
+} else {
+  root = Function('return this')();
+}
+
+var result = (0, _ponyfill2['default'])(root);
+exports['default'] = result;
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"./ponyfill.js":40}],40:[function(require,module,exports){
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+	value: true
+});
+exports['default'] = symbolObservablePonyfill;
+function symbolObservablePonyfill(root) {
+	var result;
+	var _Symbol = root.Symbol;
+
+	if (typeof _Symbol === 'function') {
+		if (_Symbol.observable) {
+			result = _Symbol.observable;
+		} else {
+			result = _Symbol('observable');
+			_Symbol.observable = result;
+		}
+	} else {
+		result = '@@observable';
+	}
+
+	return result;
+};
 },{}],41:[function(require,module,exports){
-/**
- * Checks if `value` is object-like. A value is object-like if it's not `null`
- * and has a `typeof` result of "object".
- *
- * @static
- * @memberOf _
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
- * @example
- *
- * _.isObjectLike({});
- * // => true
- *
- * _.isObjectLike([1, 2, 3]);
- * // => true
- *
- * _.isObjectLike(_.noop);
- * // => false
- *
- * _.isObjectLike(null);
- * // => false
- */
-function isObjectLike(value) {
-  return !!value && typeof value == 'object';
-}
-
-module.exports = isObjectLike;
-
-},{}],42:[function(require,module,exports){
-var isHostObject = require('./_isHostObject'),
-    isObjectLike = require('./isObjectLike');
-
-/** `Object#toString` result references. */
-var objectTag = '[object Object]';
-
-/** Used for built-in method references. */
-var objectProto = Object.prototype;
-
-/** Used to resolve the decompiled source of functions. */
-var funcToString = Function.prototype.toString;
-
-/** Used to infer the `Object` constructor. */
-var objectCtorString = funcToString.call(Object);
-
-/**
- * Used to resolve the [`toStringTag`](http://ecma-international.org/ecma-262/6.0/#sec-object.prototype.tostring)
- * of values.
- */
-var objectToString = objectProto.toString;
-
-/** Built-in value references. */
-var getPrototypeOf = Object.getPrototypeOf;
-
-/**
- * Checks if `value` is a plain object, that is, an object created by the
- * `Object` constructor or one with a `[[Prototype]]` of `null`.
- *
- * @static
- * @memberOf _
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is a plain object, else `false`.
- * @example
- *
- * function Foo() {
- *   this.a = 1;
- * }
- *
- * _.isPlainObject(new Foo);
- * // => false
- *
- * _.isPlainObject([1, 2, 3]);
- * // => false
- *
- * _.isPlainObject({ 'x': 0, 'y': 0 });
- * // => true
- *
- * _.isPlainObject(Object.create(null));
- * // => true
- */
-function isPlainObject(value) {
-  if (!isObjectLike(value) || objectToString.call(value) != objectTag || isHostObject(value)) {
-    return false;
-  }
-  var proto = objectProto;
-  if (typeof value.constructor == 'function') {
-    proto = getPrototypeOf(value);
-  }
-  if (proto === null) {
-    return true;
-  }
-  var Ctor = proto.constructor;
-  return (typeof Ctor == 'function' &&
-    Ctor instanceof Ctor && funcToString.call(Ctor) == objectCtorString);
-}
-
-module.exports = isPlainObject;
-
-},{"./_isHostObject":40,"./isObjectLike":41}],43:[function(require,module,exports){
 var createElement = require("./vdom/create-element.js")
 
 module.exports = createElement
 
-},{"./vdom/create-element.js":48}],44:[function(require,module,exports){
+},{"./vdom/create-element.js":46}],42:[function(require,module,exports){
 var diff = require("./vtree/diff.js")
 
 module.exports = diff
 
-},{"./vtree/diff.js":68}],45:[function(require,module,exports){
+},{"./vtree/diff.js":66}],43:[function(require,module,exports){
 var h = require("./virtual-hyperscript/index.js")
 
 module.exports = h
 
-},{"./virtual-hyperscript/index.js":55}],46:[function(require,module,exports){
+},{"./virtual-hyperscript/index.js":53}],44:[function(require,module,exports){
 var patch = require("./vdom/patch.js")
 
 module.exports = patch
 
-},{"./vdom/patch.js":51}],47:[function(require,module,exports){
+},{"./vdom/patch.js":49}],45:[function(require,module,exports){
 var isObject = require("is-object")
 var isHook = require("../vnode/is-vhook.js")
 
@@ -2198,7 +2499,7 @@ function getPrototype(value) {
     }
 }
 
-},{"../vnode/is-vhook.js":59,"is-object":13}],48:[function(require,module,exports){
+},{"../vnode/is-vhook.js":57,"is-object":13}],46:[function(require,module,exports){
 var document = require("global/document")
 
 var applyProperties = require("./apply-properties")
@@ -2246,7 +2547,7 @@ function createElement(vnode, opts) {
     return node
 }
 
-},{"../vnode/handle-thunk.js":57,"../vnode/is-vnode.js":60,"../vnode/is-vtext.js":61,"../vnode/is-widget.js":62,"./apply-properties":47,"global/document":11}],49:[function(require,module,exports){
+},{"../vnode/handle-thunk.js":55,"../vnode/is-vnode.js":58,"../vnode/is-vtext.js":59,"../vnode/is-widget.js":60,"./apply-properties":45,"global/document":11}],47:[function(require,module,exports){
 // Maps a virtual DOM tree onto a real DOM tree in an efficient manner.
 // We don't want to read all of the DOM nodes in the tree so we use
 // the in-order tree indexing to eliminate recursion down certain branches.
@@ -2333,7 +2634,7 @@ function ascending(a, b) {
     return a > b ? 1 : -1
 }
 
-},{}],50:[function(require,module,exports){
+},{}],48:[function(require,module,exports){
 var applyProperties = require("./apply-properties")
 
 var isWidget = require("../vnode/is-widget.js")
@@ -2486,7 +2787,7 @@ function replaceRoot(oldRoot, newRoot) {
     return newRoot;
 }
 
-},{"../vnode/is-widget.js":62,"../vnode/vpatch.js":65,"./apply-properties":47,"./update-widget":52}],51:[function(require,module,exports){
+},{"../vnode/is-widget.js":60,"../vnode/vpatch.js":63,"./apply-properties":45,"./update-widget":50}],49:[function(require,module,exports){
 var document = require("global/document")
 var isArray = require("x-is-array")
 
@@ -2568,7 +2869,7 @@ function patchIndices(patches) {
     return indices
 }
 
-},{"./create-element":48,"./dom-index":49,"./patch-op":50,"global/document":11,"x-is-array":71}],52:[function(require,module,exports){
+},{"./create-element":46,"./dom-index":47,"./patch-op":48,"global/document":11,"x-is-array":69}],50:[function(require,module,exports){
 var isWidget = require("../vnode/is-widget.js")
 
 module.exports = updateWidget
@@ -2585,7 +2886,7 @@ function updateWidget(a, b) {
     return false
 }
 
-},{"../vnode/is-widget.js":62}],53:[function(require,module,exports){
+},{"../vnode/is-widget.js":60}],51:[function(require,module,exports){
 'use strict';
 
 var EvStore = require('ev-store');
@@ -2614,7 +2915,7 @@ EvHook.prototype.unhook = function(node, propertyName) {
     es[propName] = undefined;
 };
 
-},{"ev-store":8}],54:[function(require,module,exports){
+},{"ev-store":8}],52:[function(require,module,exports){
 'use strict';
 
 module.exports = SoftSetHook;
@@ -2633,7 +2934,7 @@ SoftSetHook.prototype.hook = function (node, propertyName) {
     }
 };
 
-},{}],55:[function(require,module,exports){
+},{}],53:[function(require,module,exports){
 'use strict';
 
 var isArray = require('x-is-array');
@@ -2772,7 +3073,7 @@ function errorString(obj) {
     }
 }
 
-},{"../vnode/is-thunk":58,"../vnode/is-vhook":59,"../vnode/is-vnode":60,"../vnode/is-vtext":61,"../vnode/is-widget":62,"../vnode/vnode.js":64,"../vnode/vtext.js":66,"./hooks/ev-hook.js":53,"./hooks/soft-set-hook.js":54,"./parse-tag.js":56,"x-is-array":71}],56:[function(require,module,exports){
+},{"../vnode/is-thunk":56,"../vnode/is-vhook":57,"../vnode/is-vnode":58,"../vnode/is-vtext":59,"../vnode/is-widget":60,"../vnode/vnode.js":62,"../vnode/vtext.js":64,"./hooks/ev-hook.js":51,"./hooks/soft-set-hook.js":52,"./parse-tag.js":54,"x-is-array":69}],54:[function(require,module,exports){
 'use strict';
 
 var split = require('browser-split');
@@ -2828,7 +3129,7 @@ function parseTag(tag, props) {
     return props.namespace ? tagName : tagName.toUpperCase();
 }
 
-},{"browser-split":2}],57:[function(require,module,exports){
+},{"browser-split":2}],55:[function(require,module,exports){
 var isVNode = require("./is-vnode")
 var isVText = require("./is-vtext")
 var isWidget = require("./is-widget")
@@ -2870,14 +3171,14 @@ function renderThunk(thunk, previous) {
     return renderedThunk
 }
 
-},{"./is-thunk":58,"./is-vnode":60,"./is-vtext":61,"./is-widget":62}],58:[function(require,module,exports){
+},{"./is-thunk":56,"./is-vnode":58,"./is-vtext":59,"./is-widget":60}],56:[function(require,module,exports){
 module.exports = isThunk
 
 function isThunk(t) {
     return t && t.type === "Thunk"
 }
 
-},{}],59:[function(require,module,exports){
+},{}],57:[function(require,module,exports){
 module.exports = isHook
 
 function isHook(hook) {
@@ -2886,7 +3187,7 @@ function isHook(hook) {
        typeof hook.unhook === "function" && !hook.hasOwnProperty("unhook"))
 }
 
-},{}],60:[function(require,module,exports){
+},{}],58:[function(require,module,exports){
 var version = require("./version")
 
 module.exports = isVirtualNode
@@ -2895,7 +3196,7 @@ function isVirtualNode(x) {
     return x && x.type === "VirtualNode" && x.version === version
 }
 
-},{"./version":63}],61:[function(require,module,exports){
+},{"./version":61}],59:[function(require,module,exports){
 var version = require("./version")
 
 module.exports = isVirtualText
@@ -2904,17 +3205,17 @@ function isVirtualText(x) {
     return x && x.type === "VirtualText" && x.version === version
 }
 
-},{"./version":63}],62:[function(require,module,exports){
+},{"./version":61}],60:[function(require,module,exports){
 module.exports = isWidget
 
 function isWidget(w) {
     return w && w.type === "Widget"
 }
 
-},{}],63:[function(require,module,exports){
+},{}],61:[function(require,module,exports){
 module.exports = "2"
 
-},{}],64:[function(require,module,exports){
+},{}],62:[function(require,module,exports){
 var version = require("./version")
 var isVNode = require("./is-vnode")
 var isWidget = require("./is-widget")
@@ -2988,7 +3289,7 @@ function VirtualNode(tagName, properties, children, key, namespace) {
 VirtualNode.prototype.version = version
 VirtualNode.prototype.type = "VirtualNode"
 
-},{"./is-thunk":58,"./is-vhook":59,"./is-vnode":60,"./is-widget":62,"./version":63}],65:[function(require,module,exports){
+},{"./is-thunk":56,"./is-vhook":57,"./is-vnode":58,"./is-widget":60,"./version":61}],63:[function(require,module,exports){
 var version = require("./version")
 
 VirtualPatch.NONE = 0
@@ -3012,7 +3313,7 @@ function VirtualPatch(type, vNode, patch) {
 VirtualPatch.prototype.version = version
 VirtualPatch.prototype.type = "VirtualPatch"
 
-},{"./version":63}],66:[function(require,module,exports){
+},{"./version":61}],64:[function(require,module,exports){
 var version = require("./version")
 
 module.exports = VirtualText
@@ -3024,7 +3325,7 @@ function VirtualText(text) {
 VirtualText.prototype.version = version
 VirtualText.prototype.type = "VirtualText"
 
-},{"./version":63}],67:[function(require,module,exports){
+},{"./version":61}],65:[function(require,module,exports){
 var isObject = require("is-object")
 var isHook = require("../vnode/is-vhook")
 
@@ -3084,7 +3385,7 @@ function getPrototype(value) {
   }
 }
 
-},{"../vnode/is-vhook":59,"is-object":13}],68:[function(require,module,exports){
+},{"../vnode/is-vhook":57,"is-object":13}],66:[function(require,module,exports){
 var isArray = require("x-is-array")
 
 var VPatch = require("../vnode/vpatch")
@@ -3513,7 +3814,7 @@ function appendPatch(apply, patch) {
     }
 }
 
-},{"../vnode/handle-thunk":57,"../vnode/is-thunk":58,"../vnode/is-vnode":60,"../vnode/is-vtext":61,"../vnode/is-widget":62,"../vnode/vpatch":65,"./diff-props":67,"x-is-array":71}],69:[function(require,module,exports){
+},{"../vnode/handle-thunk":55,"../vnode/is-thunk":56,"../vnode/is-vnode":58,"../vnode/is-vtext":59,"../vnode/is-widget":60,"../vnode/vpatch":63,"./diff-props":65,"x-is-array":69}],67:[function(require,module,exports){
 var hiddenStore = require('./hidden-store.js');
 
 module.exports = createStore;
@@ -3534,7 +3835,7 @@ function createStore() {
     };
 }
 
-},{"./hidden-store.js":70}],70:[function(require,module,exports){
+},{"./hidden-store.js":68}],68:[function(require,module,exports){
 module.exports = hiddenStore;
 
 function hiddenStore(obj, key) {
@@ -3552,7 +3853,7 @@ function hiddenStore(obj, key) {
     return store;
 }
 
-},{}],71:[function(require,module,exports){
+},{}],69:[function(require,module,exports){
 var nativeIsArray = Array.isArray
 var toString = Object.prototype.toString
 
@@ -3562,7 +3863,7 @@ function isArray(obj) {
     return toString.call(obj) === "[object Array]"
 }
 
-},{}],72:[function(require,module,exports){
+},{}],70:[function(require,module,exports){
 'use strict';
 
 var _plait = require('plait');
@@ -3573,9 +3874,9 @@ var TodoApp = _interopRequireWildcard(_TodoApp);
 
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 
-document.getElementById('app').appendChild(_plait.App.start(TodoApp));
+document.getElementById('app').appendChild((0, _plait.start)(TodoApp));
 
-},{"./components/TodoApp":75,"plait":18}],73:[function(require,module,exports){
+},{"./components/TodoApp":73,"plait":19}],71:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -3585,13 +3886,9 @@ exports.init = init;
 exports.update = update;
 exports.view = view;
 
-var _h = require('virtual-dom/h');
-
-var _h2 = _interopRequireDefault(_h);
+var _plait = require('plait');
 
 var _filters = require('../utils/filters');
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function init() {
   return {
@@ -3614,23 +3911,23 @@ function view(state, dispatch) {
   });
   var items = remaining.length === 1 ? 'item' : 'items';
 
-  return (0, _h2.default)('footer', { className: "footer" }, [(0, _h2.default)('span', { className: "todo-count" }, [(0, _h2.default)('strong', null, [remaining.length]), " ", items, " left"]), (0, _h2.default)('ul', { className: "filters" }, [(0, _h2.default)('li', null, [filterLink(state, dispatch, _filters.FILTER_ALL)]), (0, _h2.default)('li', null, [filterLink(state, dispatch, _filters.FILTER_ACTIVE)]), (0, _h2.default)('li', null, [filterLink(state, dispatch, _filters.FILTER_COMPLETED)])]), clearCompleted(state, dispatch, todos)]);
+  return (0, _plait.h)('footer', { className: "footer" }, [(0, _plait.h)('span', { className: "todo-count" }, [(0, _plait.h)('strong', null, [remaining.length]), " ", items, " left"]), (0, _plait.h)('ul', { className: "filters" }, [(0, _plait.h)('li', null, [filterLink(state, dispatch, _filters.FILTER_ALL)]), (0, _plait.h)('li', null, [filterLink(state, dispatch, _filters.FILTER_ACTIVE)]), (0, _plait.h)('li', null, [filterLink(state, dispatch, _filters.FILTER_COMPLETED)])]), clearCompleted(state, dispatch, todos)]);
 }
 
 function filterLink(state, dispatch, filter) {
   var href = '#/' + filter.toLowerCase();
   var className = state.get('filter') === filter ? 'selected' : '';
 
-  return (0, _h2.default)('a', { className: className, 'ev-click': dispatch({ type: 'CHANGE_FILTER', filter: filter }), href: href }, [filter]);
+  return (0, _plait.h)('a', { className: className, 'ev-click': dispatch({ type: 'CHANGE_FILTER', filter: filter }), href: href }, [filter]);
 }
 
 function clearCompleted(state, dispatch, todos) {
   if (todos.length) {
-    return (0, _h2.default)('button', { className: "clear-completed", 'ev-click': dispatch({ type: 'CLEAR_COMPLETED' }) }, ["Clear completed"]);
+    return (0, _plait.h)('button', { className: "clear-completed", 'ev-click': dispatch({ type: 'CLEAR_COMPLETED' }) }, ["Clear completed"]);
   }
 }
 
-},{"../utils/filters":77,"virtual-dom/h":45}],74:[function(require,module,exports){
+},{"../utils/filters":75,"plait":19}],72:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -3640,11 +3937,7 @@ exports.init = init;
 exports.update = update;
 exports.view = view;
 
-var _h = require('virtual-dom/h');
-
-var _h2 = _interopRequireDefault(_h);
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+var _plait = require('plait');
 
 function init() {
   return {
@@ -3662,7 +3955,7 @@ function update(state, action) {
 function view(state, dispatch) {
   var dispatchChangeAction = dispatch({ type: 'VALUE_CHANGED' });
 
-  return (0, _h2.default)('header', { className: "header" }, [(0, _h2.default)('h1', null, ['todos']), (0, _h2.default)('input', {
+  return (0, _plait.h)('header', { className: "header" }, [(0, _plait.h)('h1', null, ['todos']), (0, _plait.h)('input', {
     autofocus: true,
     className: "new-todo",
     'ev-change': dispatchChangeAction,
@@ -3671,22 +3964,15 @@ function view(state, dispatch) {
     value: state.get('inputValue') })]);
 }
 
-},{"virtual-dom/h":45}],75:[function(require,module,exports){
+},{"plait":19}],73:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-
-var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol ? "symbol" : typeof obj; };
-
 exports.init = init;
 exports.update = update;
 exports.view = view;
-
-var _h = require('virtual-dom/h');
-
-var _h2 = _interopRequireDefault(_h);
 
 var _plait = require('plait');
 
@@ -3710,12 +3996,12 @@ var _merge = require('../utils/merge');
 
 var _merge2 = _interopRequireDefault(_merge);
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
-
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-var fwd = _plait.App.forwardDispatch;
-var initComponent = _plait.App.initializeComponent;
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
+
+var fwd = _plait.forwardDispatch,
+    initComponent = _plait.initializeComponent;
 function init() {
   return (0, _merge2.default)({ todos: [] }, Header.init(), Footer.init());
 }
@@ -3749,20 +4035,14 @@ function updateHeader(state, action) {
   var value = action.$event.target.value.trim();
 
   if ((0, _input.wasEnterKey)(action.$event) && value.length) {
-    var _ret = function () {
-      var newTodo = initComponent({ init: TodoItem.init(value) });
+    var newTodo = initComponent({ init: TodoItem.init(value) });
 
-      return {
-        v: state.update('todos', function (todos) {
-          return todos.concat(newTodo);
-        }).set('inputValue', '')
-      };
-    }();
-
-    if ((typeof _ret === 'undefined' ? 'undefined' : _typeof(_ret)) === "object") return _ret.v;
-  } else {
-    return Header.update(state, action.$fwdAction);
+    return state.update('todos', function (todos) {
+      return todos.concat(newTodo);
+    }).set('inputValue', '');
   }
+
+  return Header.update(state, action.$fwdAction);
 }
 
 function updateFooter(state, action) {
@@ -3781,34 +4061,28 @@ var updateTodoItem = function updateTodoItem(action) {
   return function (state, idx) {
     if (idx === action.todoIdx) {
       return TodoItem.update(state, action.$fwdAction);
-    } else {
-      return state;
     }
+
+    return state;
   };
 };
 
 function updateTodoItems(state, action) {
   if (action.$fwdAction.type === 'DELETE') {
-    var _ret2 = function () {
-      var idx = action.todoIdx;
+    var idx = action.todoIdx;
 
-      return {
-        v: state.update('todos', function (todos) {
-          return todos.slice(0, idx).concat(todos.slice(idx + 1));
-        })
-      };
-    }();
-
-    if ((typeof _ret2 === 'undefined' ? 'undefined' : _typeof(_ret2)) === "object") return _ret2.v;
-  } else {
     return state.update('todos', function (todos) {
-      return todos.map(updateTodoItem(action));
+      return todos.slice(0, idx).concat(todos.slice(idx + 1));
     });
   }
+
+  return state.update('todos', function (todos) {
+    return todos.map(updateTodoItem(action));
+  });
 }
 
 function view(state, dispatch) {
-  return (0, _h2.default)('div', null, [(0, _h2.default)('section', { className: "todoapp" }, [headerView(state, dispatch), todosView(state, dispatch), footerView(state, dispatch)]), (0, _h2.default)('footer', { className: "info" }, [(0, _h2.default)('p', null, ["Double-click to edit a todo"]), (0, _h2.default)('p', null, ["Created by ", (0, _h2.default)('a', { href: "https://wildlyinaccurate.com/" }, ["Joseph Wynn"])]), (0, _h2.default)('p', null, ["Part of ", (0, _h2.default)('a', { href: "http://todomvc.com" }, ["TodoMVC"])])])]);
+  return (0, _plait.h)('div', null, [(0, _plait.h)('section', { className: "todoapp" }, [headerView(state, dispatch), todosView(state, dispatch), footerView(state, dispatch)]), (0, _plait.h)('footer', { className: "info" }, [(0, _plait.h)('p', null, ["Double-click to edit a todo"]), (0, _plait.h)('p', null, ["Created by ", (0, _plait.h)('a', { href: "https://wildlyinaccurate.com/" }, ["Joseph Wynn"])]), (0, _plait.h)('p', null, ["Part of ", (0, _plait.h)('a', { href: "http://todomvc.com" }, ["TodoMVC"])])])]);
 }
 
 function headerView(state, dispatch) {
@@ -3823,7 +4097,7 @@ function footerView(state, dispatch) {
 
 function todosView(state, dispatch) {
   if (state.get('todos').length) {
-    return (0, _h2.default)('section', { className: "main" }, [(0, _h2.default)('input', { className: "toggle-all", 'ev-change': dispatch({ type: 'TOGGLE_ALL' }), type: "checkbox" }), (0, _h2.default)('label', { htmlFor: "toggle-all" }, ["Mark all as complete"]), (0, _h2.default)('ul', { className: "todo-list" }, [todoItemsView(state, dispatch)])]);
+    return (0, _plait.h)('section', { className: "main" }, [(0, _plait.h)('input', { className: "toggle-all", 'ev-change': dispatch({ type: 'TOGGLE_ALL' }), type: "checkbox" }), (0, _plait.h)('label', { htmlFor: "toggle-all" }, ["Mark all as complete"]), (0, _plait.h)('ul', { className: "todo-list" }, [todoItemsView(state, dispatch)])]);
   }
 }
 
@@ -3856,7 +4130,7 @@ function satisfiesFilter(filter, todo) {
   }
 }
 
-},{"../utils/filters":77,"../utils/input":78,"../utils/merge":79,"./Footer":73,"./Header":74,"./TodoItem":76,"plait":18,"virtual-dom/h":45}],76:[function(require,module,exports){
+},{"../utils/filters":75,"../utils/input":76,"../utils/merge":77,"./Footer":71,"./Header":72,"./TodoItem":74,"plait":19}],74:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -3866,13 +4140,9 @@ exports.init = init;
 exports.update = update;
 exports.view = view;
 
-var _h = require('virtual-dom/h');
-
-var _h2 = _interopRequireDefault(_h);
+var _plait = require('plait');
 
 var _input = require('../utils/input');
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function init(title) {
   return function () {
@@ -3899,16 +4169,16 @@ function update(state, action) {
     case 'STOP_EDIT':
       if (!(0, _input.wasKeyEvent)(action.$event) || (0, _input.wasEnterKey)(action.$event)) {
         return state.set('editing', false);
-      } else {
-        return state.set('title', action.$event.target.value);
       }
+
+      return state.set('title', action.$event.target.value);
   }
 }
 
 function view(state, dispatch) {
   var itemClasses = [state.get('completed') ? 'completed' : '', state.get('editing') ? 'editing' : ''].join(' ');
 
-  return (0, _h2.default)('li', { className: itemClasses, 'ev-dblclick': dispatch({ type: 'START_EDIT' }) }, [(0, _h2.default)('div', { className: "view" }, [checkboxView(state, dispatch), (0, _h2.default)('label', null, [state.get('title')]), (0, _h2.default)('button', { className: "destroy", 'ev-click': dispatch({ type: 'DELETE' }) })]), (0, _h2.default)('input', {
+  return (0, _plait.h)('li', { className: itemClasses, 'ev-dblclick': dispatch({ type: 'START_EDIT' }) }, [(0, _plait.h)('div', { className: "view" }, [checkboxView(state, dispatch), (0, _plait.h)('label', null, [state.get('title')]), (0, _plait.h)('button', { className: "destroy", 'ev-click': dispatch({ type: 'DELETE' }) })]), (0, _plait.h)('input', {
     className: "edit",
     'ev-blur': dispatch({ type: 'STOP_EDIT' }),
     'ev-keyup': dispatch({ type: 'STOP_EDIT' }),
@@ -3917,17 +4187,17 @@ function view(state, dispatch) {
 
 function checkboxView(state, dispatch) {
   if (state.get('completed')) {
-    return (0, _h2.default)('input', { checked: true, className: "toggle", 'ev-change': dispatch(setCompleted(false)), type: "checkbox" });
-  } else {
-    return (0, _h2.default)('input', { className: "toggle", 'ev-change': dispatch(setCompleted(true)), type: "checkbox" });
+    return (0, _plait.h)('input', { checked: true, className: "toggle", 'ev-change': dispatch(setCompleted(false)), type: "checkbox" });
   }
+
+  return (0, _plait.h)('input', { className: "toggle", 'ev-change': dispatch(setCompleted(true)), type: "checkbox" });
 }
 
 function setCompleted(completed) {
   return { type: 'SET_COMPLETED', completed: completed };
 }
 
-},{"../utils/input":78,"virtual-dom/h":45}],77:[function(require,module,exports){
+},{"../utils/input":76,"plait":19}],75:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -3939,7 +4209,7 @@ var FILTER_ACTIVE = exports.FILTER_ACTIVE = 'Active';
 
 var FILTER_COMPLETED = exports.FILTER_COMPLETED = 'Completed';
 
-},{}],78:[function(require,module,exports){
+},{}],76:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -3955,7 +4225,7 @@ var wasKeyEvent = exports.wasKeyEvent = function wasKeyEvent(event) {
   return event.hasOwnProperty('keyCode');
 };
 
-},{}],79:[function(require,module,exports){
+},{}],77:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -3970,4 +4240,4 @@ function merge() {
   return Object.assign.apply(this, [{}].concat(objs));
 }
 
-},{}]},{},[72]);
+},{}]},{},[70]);

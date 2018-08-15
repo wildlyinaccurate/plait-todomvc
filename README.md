@@ -4,7 +4,7 @@
 
 ## Resources
 
-- [Website](https://wildlyinaccurate.com/plait/)
+- [Website](https://plait.js.org/)
 - [Documentation](https://wildlyinaccurate.com/plait/)
 - [Used by]()
 - [Blog]()
